@@ -806,7 +806,7 @@
 
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script>
+    <script><![CDATA[
         var LS_KEY = 'ob_external_connection_v1';
 
         function getStoredConnection() {
@@ -971,7 +971,7 @@
 
         function updateOverview(accountsData) {
             var cashDesc = document.getElementById('cashCardDesc');
-            if (accountsData &amp;&amp; accountsData.accounts) {
+            if (accountsData && accountsData.accounts) {
                 var accounts = accountsData.accounts;
                 var totalBalance = accounts.reduce(function (sum, acc) { return sum + acc.balance; }, 0);
 
@@ -1020,7 +1020,7 @@
                 statusTitle.textContent = 'Authenticating';
                 statusMessage.textContent = 'Redirecting to ' + bankName + ' OAuth flow…';
 
-                var oauthUrl = '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&amp;access_types=ACCOUNT_BASIC,TRANSACTIONS';
+                var oauthUrl = '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&access_types=ACCOUNT_BASIC,TRANSACTIONS';
 
                 setTimeout(function () {
                     window.location.href = oauthUrl;
@@ -1072,6 +1072,6 @@
             renderExternalConnections();
             setTimeout(loadAccountData, 500);
         });
-    </script>
+    ]]></script>
 </body>
 </html>

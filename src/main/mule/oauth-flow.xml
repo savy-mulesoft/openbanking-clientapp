@@ -564,4 +564,18 @@ output application/json
             </ee:variables>
         </ee:transform>
     </sub-flow>
+
+    <flow name="oauth-session-http-flow" doc:id="oauth-session-http-flow">
+        <http:listener doc:name="GET /api/oauth/session" doc:id="oauth-session-listener" config-ref="HTTP_Listener_config" path="/api/oauth/session" allowedMethods="GET">
+            <http:response statusCode="#[vars.httpStatus default 200]" />
+        </http:listener>
+        <flow-ref doc:name="OAuth session API" name="oauth-session-api-subflow"/>
+    </flow>
+
+    <flow name="oauth-disconnect-http-flow" doc:id="oauth-disconnect-http-flow">
+        <http:listener doc:name="POST /api/oauth/disconnect" doc:id="oauth-disconnect-listener" config-ref="HTTP_Listener_config" path="/api/oauth/disconnect" allowedMethods="POST">
+            <http:response statusCode="#[vars.httpStatus default 200]" />
+        </http:listener>
+        <flow-ref doc:name="OAuth disconnect API" name="oauth-disconnect-api-subflow"/>
+    </flow>
 </mule>
