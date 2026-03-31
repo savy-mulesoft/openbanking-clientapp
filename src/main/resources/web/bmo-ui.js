@@ -210,6 +210,7 @@
         var countEl = document.getElementById('accountCount');
         var descEl = document.getElementById('externalCardDesc');
         var card = document.getElementById('externalConnectionsCard');
+        var body = document.getElementById('externalCardBody');
 
         if (!countEl || !descEl || !card) return;
 
@@ -217,7 +218,19 @@
         countEl.textContent = String(n);
         descEl.textContent = n ? '1 active connection' : 'No connections yet';
         card.classList.toggle('card--interactive', n > 0);
-        card.setAttribute('aria-expanded', 'false');
+
+        if (body) {
+            body.setAttribute('aria-expanded', 'false');
+            if (n > 0) {
+                body.setAttribute('role', 'button');
+                body.setAttribute('tabindex', '0');
+                body.setAttribute('aria-controls', 'externalDetailModal');
+            } else {
+                body.removeAttribute('role');
+                body.removeAttribute('tabindex');
+                body.removeAttribute('aria-controls');
+            }
+        }
 
         if (!n) {
             closeExternalDetailModal();
@@ -226,13 +239,13 @@
 
     function closeExternalDetailModal() {
         var m = document.getElementById('externalDetailModal');
-        var card = document.getElementById('externalConnectionsCard');
+        var body = document.getElementById('externalCardBody');
         if (m) {
             m.classList.remove('is-open');
             m.style.display = 'none';
             m.setAttribute('aria-hidden', 'true');
         }
-        if (card) card.setAttribute('aria-expanded', 'false');
+        if (body) body.setAttribute('aria-expanded', 'false');
         document.body.classList.remove('modal-open');
     }
 
@@ -252,8 +265,8 @@
         m.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
 
-        var card = document.getElementById('externalConnectionsCard');
-        if (card) card.setAttribute('aria-expanded', 'true');
+        var body = document.getElementById('externalCardBody');
+        if (body) body.setAttribute('aria-expanded', 'true');
     }
 
     function populateExternalDetailModal(conn) {
@@ -634,8 +647,21 @@
 
         if (notifItem1) {
             notifItem1.addEventListener('click', function () {
-                showNotification('Sandbox: external bank OAuth is available to try in this demo.', 'warn');
+                showNotification(
+                    'Important message from your Advisor — Authorize Account Consolidation',
+                    'warn'
+                );
                 closeNotifDropdown();
+            });
+        }
+
+        var extPlus = document.getElementById('externalCardPlusBtn');
+        if (extPlus) {
+            extPlus.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (typeof window.openConnectionModal === 'function') {
+                    window.openConnectionModal();
+                }
             });
         }
 
@@ -697,14 +723,14 @@
             });
         }
 
-        var ext = document.getElementById('externalConnectionsCard');
-        if (ext) {
-            ext.addEventListener('click', function () {
+        var extBody = document.getElementById('externalCardBody');
+        if (extBody) {
+            extBody.addEventListener('click', function () {
                 if (getStoredConnection()) {
                     openExternalDetailModal();
                 }
             });
-            ext.addEventListener('keydown', function (e) {
+            extBody.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     if (getStoredConnection()) {

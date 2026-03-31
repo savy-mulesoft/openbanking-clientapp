@@ -387,6 +387,10 @@
             line-height: 1.3;
         }
 
+        .header-dropdown__item-title strong {
+            font-weight: 700;
+        }
+
         .header-dropdown__item-sub {
             font-size: 13px;
             font-weight: 400;
@@ -485,6 +489,50 @@
             font-size: 13px;
             color: var(--text-muted);
             margin-top: 6px;
+        }
+
+        .card-external-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .card-external-head .card-label {
+            margin-bottom: 0;
+        }
+
+        .card-add-btn {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            margin: -4px -4px 0 0;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 112, 120, 0.32);
+            background: rgba(0, 112, 120, 0.07);
+            color: var(--bmo-teal-dark);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .card-add-btn:active {
+            transform: scale(0.94);
+        }
+
+        @media (hover: hover) {
+            .card-add-btn:hover {
+                background: rgba(0, 112, 120, 0.14);
+                border-color: rgba(0, 112, 120, 0.45);
+            }
+        }
+
+        .external-card-body .card-value {
+            margin-top: 0;
         }
 
         .btn-primary {
@@ -839,9 +887,10 @@
         }
 
         .card--interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .card--interactive:focus-visible {
+        .card--interactive .external-card-body:focus-visible {
             outline: 2px solid var(--bmo-teal);
             outline-offset: 3px;
+            border-radius: 8px;
         }
 
         .modal--external-detail { position: relative; max-width: 440px; }
@@ -986,8 +1035,8 @@
                             </button>
                             <div id="notifDropdown" class="header-dropdown header-dropdown--wide" role="menu" hidden>
                                 <button type="button" class="header-dropdown__item header-dropdown__item--multiline" role="menuitem" id="notifItem1">
-                                    <span class="header-dropdown__item-title">Sandbox ready</span>
-                                    <span class="header-dropdown__item-sub">You can test external bank OAuth from this demo.</span>
+                                    <span class="header-dropdown__item-title"><strong>Important message from your Advisor</strong></span>
+                                    <span class="header-dropdown__item-sub">Authorize Account Consolidation</span>
                                 </button>
                             </div>
                         </div>
@@ -1023,10 +1072,19 @@
                             <div class="card-value" id="totalBalance">—</div>
                             <div class="card-description" id="cashCardDesc">Connect a bank to populate</div>
                         </div>
-                        <div class="card" id="externalConnectionsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="externalDetailModal">
-                            <div class="card-label">External accounts</div>
-                            <div class="card-value" id="accountCount">0</div>
-                            <div class="card-description" id="externalCardDesc">No connections yet</div>
+                        <div class="card" id="externalConnectionsCard">
+                            <div class="card-external-head">
+                                <div class="card-label">External accounts</div>
+                                <button type="button" class="card-add-btn" id="externalCardPlusBtn" aria-label="Connect external bank">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                                        <path d="M12 5v14M5 12h14"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="external-card-body" id="externalCardBody" aria-expanded="false">
+                                <div class="card-value" id="accountCount">0</div>
+                                <div class="card-description" id="externalCardDesc">No connections yet</div>
+                            </div>
                         </div>
                     </div>
 
