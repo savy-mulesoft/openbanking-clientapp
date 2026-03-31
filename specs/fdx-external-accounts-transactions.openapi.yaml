@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: FDX-aligned External Data API (Accounts & Transactions)
+  description: |
+    **Purpose:** Contract for a *data holder* (e.g. external bank) resource server that exposes
+    **consented** account and transaction data using patterns aligned with **FDX Core API v6.5**
+    (`/accounts`, `/accounts/{accountId}`, `/accounts/{accountId}/transactions`).
+
+    **Auth:** Use **`Authorization: Bearer <access_token>`** where the token is the OAuth 2.0
+    access token your client obtained after consent (in this PoC, stored in the browser after
+    `/api/oauth/session`; in production, prefer secure server-side storage and **never** expose
+    holder tokens to untrusted front-ends if the holder forbids public clients).
+
+    **Scopes:** The token SHOULD reflect FDX-style consent (e.g. `ACCOUNT_BASIC` for accounts
+    / balances metadata, `TRANSACTIONS` for transaction history). The resource server MUST
+    enforce these scopes and return `403` when insufficient.
+
+    **Normative reference in-repo:** `FDX Fall Release 2025/API/FDX API v6.5/fdxapi.core.yaml`
+
+    This file is a **pragmatic subset** (OpenAPI **3.0.x**) for codegen, mocking, and partner
+    onboarding—not a full copy of the FDX schema tree.
+  version: 0.1.0
+  contact:
+    name: Open Banking PoC
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://data-holder.example.com/fdx/v6
+    description: Example base path (replace with real issuer / API gateway URL)
+
+tags:
+  - name: Account Information
+    description: Search and retrieve accounts (FDX Core § Account Information)
+  - name: Account Transactions
+    description: Search transactions for an account (FDX Core § Account Transactions)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /accounts:
+    get:
+      operationId: searchForAccounts
+      tags:
+        - Account Information
+      summary: Search for accounts (FDX-aligned)
+      description: |
+        Returns consented accounts for the resource owner associated with the bearer token.
+        Mirrors FDX `searchForAccounts` response shape at a high level (`accounts` + pagination).
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - name: accountIds
+          in: query
+          description: Optional comma-separated account identifiers (FDX-style filter).
+          schema:
+            type: string
+            example: "10001,10002"
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Accounts found
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accounts'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}:
+    get:
+      operationId: getAccount
+      tags:
+        - Account Information
+      summary: Retrieve account details (FDX-aligned)
+      description: |
+        Returns a single account. Payload uses FDX discriminator field `accountCategory`.
+        This subset focuses on `DEPOSIT_ACCOUNT`; extend with other `oneOf` branches as needed.
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: Account details
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountWithDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}/transactions:
+    get:
+      operationId: searchForAccountTransactions
+      tags:
+        - Account Transactions
+      summary: Search for account transactions (FDX-aligned)
+      description: |
+        Returns paginated transactions for the account. Aligns with FDX `searchForAccountTransactions`
+        envelope (`transactions` + pagination metadata).
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: startTime
+          in: query
+          description: ISO 8601 instant; inclusive filter on posted time (FDX-style).
+          schema:
+            type: string
+            format: date-time
+            example: "2017-11-01T00:00:00.000Z"
+        - name: endTime
+          in: query
+          description: ISO 8601 instant; inclusive filter on posted time.
+          schema:
+            type: string
+            format: date-time
+            example: "2017-11-30T23:59:59.999Z"
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Transactions page
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transactions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth 2.0 access token (may be JWT or opaque). Must include consent for the requested
+        operation (e.g. `ACCOUNT_BASIC`, `TRANSACTIONS`).
+
+  headers:
+    FapiInteractionId:
+      description: FAPI interaction id (echo or generate); recommended for tracing.
+      schema:
+        type: string
+        format: uuid
+        example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+  parameters:
+    FapiInteractionId:
+      name: x-fapi-interaction-id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+    AccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: FDX account identifier
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: string
+        description: Opaque or numeric offset for pagination (FDX uses offset/pageKey patterns).
+        example: "0"
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 25
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "401"
+            message: Unauthorized
+    Forbidden:
+      description: Token valid but insufficient scope or policy denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "403"
+            message: Forbidden — required scope not granted
+    NotFound:
+      description: Account or resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "701"
+            message: Account not found
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        debugMessage:
+          type: string
+          description: Optional diagnostic detail (omit in production)
+
+    PageMetadata:
+      type: object
+      description: Simplified FDX pagination (see `PaginatedArray` in official components).
+      properties:
+        nextOffset:
+          type: string
+          nullable: true
+        total:
+          type: integer
+          format: int64
+          nullable: true
+
+    PageLinks:
+      type: object
+      properties:
+        next:
+          type: object
+          properties:
+            href:
+              type: string
+              format: uri-reference
+
+    Accounts:
+      type: object
+      required:
+        - accounts
+      properties:
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountWithDetails'
+
+    Account:
+      type: object
+      description: Base fields common to FDX Account types (subset).
+      required:
+        - accountCategory
+        - accountId
+      properties:
+        accountCategory:
+          type: string
+          description: FDX discriminator value
+          example: DEPOSIT_ACCOUNT
+        accountId:
+          type: string
+        nickname:
+          type: string
+          description: Display label / masked number
+        status:
+          type: string
+          example: OPEN
+        currency:
+          type: string
+          description: ISO 4217
+          example: CAD
+
+    DepositAccount:
+      allOf:
+        - $ref: '#/components/schemas/Account'
+        - type: object
+          required:
+            - accountCategory
+          properties:
+            accountCategory:
+              type: string
+              enum:
+                - DEPOSIT_ACCOUNT
+            balanceAsOf:
+              type: string
+              format: date-time
+            currentBalance:
+              type: number
+              format: double
+            availableBalance:
+              type: number
+              format: double
+              nullable: true
+            openingDayBalance:
+              type: number
+              format: double
+              nullable: true
+
+    AccountWithDetails:
+      description: |
+        FDX uses a discriminated union. This subset exposes `DEPOSIT_ACCOUNT` only;
+        add other branches to match full FDX `AccountWithDetails`.
+      oneOf:
+        - $ref: '#/components/schemas/DepositAccount'
+      discriminator:
+        propertyName: accountCategory
+        mapping:
+          DEPOSIT_ACCOUNT: '#/components/schemas/DepositAccount'
+
+    Transaction:
+      type: object
+      description: Simplified transaction line consistent with FDX examples.
+      required:
+        - transactionId
+        - accountId
+        - postedTimestamp
+        - amount
+        - debitCreditMemo
+      properties:
+        accountCategory:
+          type: string
+          example: DEPOSIT_ACCOUNT
+        accountId:
+          type: string
+        transactionId:
+          type: string
+        postedTimestamp:
+          type: string
+          format: date-time
+        description:
+          type: string
+        debitCreditMemo:
+          type: string
+          description: DEBIT or CREDIT (FDX DebitCreditMemo)
+          enum:
+            - DEBIT
+            - CREDIT
+        amount:
+          type: number
+          format: double
+        payee:
+          type: string
+          nullable: true
+
+    Transactions:
+      type: object
+      required:
+        - transactions
+      properties:
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'

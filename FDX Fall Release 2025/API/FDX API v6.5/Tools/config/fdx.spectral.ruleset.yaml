@@ -1,0 +1,1033 @@
+# info:
+#   version: '6.5.0'
+#   title: FDX V6.5.0 Spectral ruleset
+#   description: FDX ruleset for the Spectral OpenAPI validator/linter
+#   contact:
+#     name: Financial Data Exchange
+#     url: 'https://financialdataexchange.org/'
+#     email: fdxsupport@financialdataexchange.org
+#
+# Install on Mac or Linux:
+#    'npm install -g @stoplight/spectral-cli'
+#
+# Install on Windows:
+# Download binary from:
+#    https://github.com/stoplightio/spectral/releases
+# Follow instructions (when latest was v6.6.0):
+#    https://github.com/stoplightio/spectral/releases/download/v6.6.0/spectral.exe
+#
+# See https://meta.stoplight.io/docs/spectral/docs/guides/4-custom-rulesets.md
+#
+# Incorporate these rules in validating your own FDX-based APIs by following
+# instructions at https://meta.stoplight.io/docs/spectral/83527ef2dd8c0-extending-rulesets
+# or follow the example here:
+#
+#   * Download this FDX base ruleset file fdx.spectral.ruleset.yaml
+#   * Point to it in an extends entry in your own rules file, like so:
+#
+#       extends:
+#        - ./fdx.spectral.ruleset.yaml
+#
+#   * Add your own rules and/or overrides in your file
+#     * Note: Added rules of the same name completely replace the
+#             overridden rule, see fdx-semantic-versions rule in
+#             companion file fdx.test.ruleset.yaml
+#   * Execute via command line or in your build pipeline like:
+#
+#       spectral lint --ruleset config/fdx.spectral.ruleset.yaml API/fdxapi.core.yaml
+#
+
+---
+extends: [[spectral:oas, all, '@stoplight/spectral-owasp-ruleset']]
+rules:
+  fdx-semantic-versions:
+    description: Require 3-part semantic versions
+    message: Version is not a valid FDX semantic version - {{value}}
+    given: $.info.version
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        # This pattern works for major versions 6 to 9, matching FDX releases beginning Fall 2023:
+        match: "^[6-9].(0|[1-9][0-9]*).(0|[1-9][0-9]*)$"
+  fdx-entity-title:
+    description: Title needed for each defined schema object
+    message: No value provided for {{property}}
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      - field: title
+        function: truthy
+  fdx-schema-type:
+    description: Type must be set for each defined schema object
+    message: No value provided for {{property}}
+    severity: error
+    resolved: true
+    given:
+      - $.components.schemas[*]
+      - "$.paths[*]..schema"
+    then:
+      - field: type
+        function: truthy
+  fdx-entity-description:
+    description: Description needed for each defined schema object
+    message: No value provided for {{property}}
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      - field: description
+        function: truthy
+  fdx-property-description:
+    description: Description needed for each property
+    message: No value provided for {{property}}
+    given: $.components.schemas[*]..properties.*
+    severity: info
+    resolved: false
+    then:
+      - field: description
+        function: defined
+  fdx-entity-alphabetical:
+    description: Defined entities should be in alphabetical order
+    message: Entities not in alpha order - {{property}}
+    severity: warn
+    given: $.components.schemas[?(@.type==='object')]^
+    resolved: false
+    then:
+      - function: alphabetical
+  # Not working, needs further refinement:
+  # fdx-types-alphabetical:
+  #   description: Defined types should be in alphabetical order
+  #   message: Types not in alpha order - {{property}}
+  #   severity: warn
+  #   given: $.components.schemas[?(@.type!=='object')]^
+  #   resolved: false
+  #   then:
+  #     - function: alphabetical
+  fdx-openapi-license-url:
+    description: FDX defines info.license.url, do not include an identifier
+    given: $.info.license
+    then:
+      - field: url
+        function: truthy
+      - field: identifier
+        function: undefined
+  fdx-tags-title-case:
+    description: Tags should be Title Case noun phrases
+    message: Tag not a Title Case noun phrase - {{value}}
+    given:
+      - "$.tags[*].name"
+      - "$.paths..tags[*]"
+    resolved: false
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: '^[A-Z][a-z]+(?:[ ][A-Z][a-z]+)*$'
+  fdx-operation-id-camel-case:
+    description: Operation IDs must be camelCase since some generators (e.g. RTK Query) don't support kebab-cases.
+    message: operationID is not in camelCase - {{value}}
+    given: $.paths[*].[get,put,post,delete,options,head,patch,trace]
+    severity: error
+    then:
+      field: operationId
+      function: casing
+      functionOptions:
+        type: camel
+  fdx-operation-id-match-delete:
+    description: Operation IDs must match their HTTP method
+    message: Delete operationID not 'delete*' or 'cancel*' - {{value}}
+    given: $.paths[*].delete
+    severity: error
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        # Rule fdx-operation-id-camel-case validates full Op ID casing
+        match: '^(delete|cancel)[A-Z]'
+  fdx-operation-id-match-get:
+    description: Operation IDs must match their HTTP method
+    message: Get operationID not 'get*' or 'search*' - {{value}}
+    given: $.paths[*].get
+    severity: error
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        # Rule fdx-operation-id-camel-case validates full Op ID casing
+        match: '^(get|search)[A-Z]'
+  fdx-operation-id-match-post:
+    description: Operation IDs must match their HTTP method
+    message: Post operationID not 'create*' or 'schedule*' - {{value}}
+    given: $.paths[*].post
+    severity: error
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        # Rule fdx-operation-id-camel-case validates full Op ID casing
+        match: '^(create|schedule)[A-Z]'
+  fdx-operation-id-match-update:
+    description: Operation IDs must match their HTTP method
+    message: Patch/Put operationID not 'update*' - {{value}}
+    given: $.paths[*].[patch,put]
+    severity: error
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        # Rule fdx-operation-id-camel-case validates full Op ID casing
+        match: '^(update)[A-Z]'
+  fdx-csdf-account-categories:
+    description: Validate the x-fdx-csdf-account-categories tag values are ANY, REG_E, or REG_Z
+    message: x-fdx-csdf-account-categories tag invalid -> [{{value}}]
+    given:
+      - $.components.schemas[*].x-fdx-csdf-account-categories[*]
+      - $.components.schemas[*]..properties[*].x-fdx-csdf-account-categories[*]
+      - $.components.parameters[*].x-fdx-csdf-account-categories[*]
+      - "$.paths[*].[get,put,post,delete,options,head,patch,trace].x-fdx-csdf-account-categories[*]"
+      - "$.paths[*].x-fdx-csdf-account-categories[*]"
+    severity: error
+    then:
+      - function: pattern
+        functionOptions:
+          # Valid values for x-fdx-csdf-account-categories
+          match: '^(ANY|REG_E|REG_Z)'
+  fdx-csdf-account-categories-length:
+    description: Validate the x-fdx-csdf-account-categories tag value array has 1 element
+    message: x-fdx-csdf-account-categories tag invalid -> [{{value}}]
+    given:
+      - $.components.schemas[*]
+      - $.components.schemas[*]..properties[*]
+      - $.components.parameters[*]
+      - "$.paths[*].[get,put,post,delete,options,head,patch,trace]"
+      - "$.paths[*]"
+    severity: error
+    then:
+      - field: x-fdx-csdf-account-categories
+        function: length
+        functionOptions:
+          min: 1
+          max: 1
+  fdx-csdf-technical:
+    description: Validate the x-fdx-csdf-technical tag values are true
+    message: x-fdx-csdf-technical must be true -> {{value}}
+    given:
+      - $.components.schemas[*]
+      - $.components.schemas[*]..properties.*
+      - $.components.parameters[*]
+      - "$.paths[*].[get,put,post,delete,options,head,patch,trace]"
+      - "$.paths[*]"
+    severity: error
+    then:
+      field: x-fdx-csdf-technical
+      function: enumeration
+      functionOptions:
+        values:
+          - true
+  fdx-http-methods:
+    description: FDX is currently only supporting five of the HTTP methods.
+      In the same place parameters and summary are also used.
+      OAS also supports $ref and servers and "x-fdx-" extensions directly under a path.
+      When those are needed the pattern can be extended similar to this
+        '^(delete|get|patch|post|put|parameters|summary|\$ref|servers|x-fdx-.*)$'
+    message: HTTP method is not supported by FDX - {{property}}
+    given: $.paths[*].
+    severity: error
+    then:
+      field: '@key'
+      function: pattern
+      functionOptions:
+        match: '^(delete|get|patch|post|put|parameters|summary|x-fdx-csdf-account-categories|x-fdx-csdf-technical)$'
+  fdx-no-examples-under-schema:
+    description: Request/response examples must be at schema level, not below
+    message: Examples must be at schema level not beneath it
+    given:
+      # - "#ResponseSchemas"
+      - "$.components.responses[*].content..schema"
+      - "$.paths[*]..responses[*].content..schema"
+      # - "#RequestSchemas"
+      - "$.paths[*]..requestBody..schema"
+    severity: error
+    resolved: false
+    then:
+      - field: examples
+        function: undefined
+      - field: example
+        function: undefined
+  fdx-payloads-of-type-object:
+    description: Request/response entities must be type object for non-breaking extensibility
+    message: 'Request/response not of type: object -> {{value}}'
+    given:
+      # - "#ResponseSchemas"
+      - "$.components.responses[*].content.application/json.schema"
+      - "$.paths[*]..responses[*].content.application/json.schema"
+      # - "#RequestSchemas"
+      - "$.paths[*]..requestBody.content.application/json.schema"
+    severity: error
+    resolved: true
+    then:
+      field: type
+      function: enumeration
+      functionOptions:
+        values:
+          - object
+  fdx-allof-type-defined:
+    description: A valid type must be set for each element of allOf array
+    message: 'allOf element has undefined type -> {{property}}'
+    severity: warn
+    resolved: true
+    given:
+      - $..allOf[*]
+    then:
+      field: type
+      function: truthy
+  fdx-allof-type-object:
+    description: Type must be set to object for each element of allOf array
+    # message: 'allOf element not of type: object -> {{value}}'
+    # severity: warn
+    message: 'FYI: allOf element is of type: {{value}}'
+    severity: info
+    resolved: true
+    given:
+      - $..allOf[*]
+    then:
+      field: type
+      function: enumeration
+      functionOptions:
+        values:
+          - object
+  fdx-deprecated-element:
+    description: Identify all deprecated elements during rule evaluation
+    message: 'OpenAPI element is deprecated -> {{value}}'
+    severity: info
+    resolved: false
+    given:
+      - $.components.schemas[*]
+      - $.components.schemas[*]..properties.*
+      - "$.paths[*]..schema"
+    then:
+      - field: deprecated
+        function: undefined
+  fdx-deprecated-parameter:
+    description: Identify all deprecated parameters during rule evaluation
+    message: 'OpenAPI parameter deprecated  -> {{value}}'
+    severity: info
+    resolved: false
+    given:
+      - $.components.parameters[*]
+      - "$.paths[*].[get,put,post,delete,options,head,patch,trace].parameters[*]"
+    then:
+      - field: deprecated
+        function: undefined
+  fdx-response-missing-content:
+    description: Request/response body schemas must have content
+    message: Payload body not defined - {{property}}
+    given:
+      # - "#ResponseSchemas"
+      - "$.components.responses[*]"
+      - "$.paths[*]..responses[*]"
+      # - "#RequestSchemas"
+      - "$.paths[*]..requestBody"
+    severity: error
+    resolved: true
+    then:
+      field: content
+      function: defined
+  fdx-headers-are-media-types:
+    description: Response headers must not be media types (i.e. content is missing)
+    message: Response header is a media type - {{property}}
+    given:
+      # - "#ResponseSchemas"
+      - "$.components.responses[*].headers"
+      - "$.paths[*]..responses[*].headers"
+    severity: error
+    resolved: true
+    then:
+      - field: application/json
+        function: undefined
+      - field: application/jwt
+        function: undefined
+      - field: application/pdf
+        function: undefined
+      - field: application/zip
+        function: undefined
+      - field: image/gif
+        function: undefined
+      - field: image/jpeg
+        function: undefined
+      - field: image/png
+        function: undefined
+      - field: image/tiff
+        function: undefined
+  fdx-paths-only-ref-schemas:
+    description: Request/response schemas should reference a defined entity
+    message: Schema not referencing a defined entity
+    given:
+      # - "#ResponseSchemas"
+      - "$.components.responses[*].content.application/json.schema"
+      - "$.paths[*]..responses[*].content.application/json.schema"
+      # - "#RequestSchemas"
+      - "$.paths[*]..requestBody..application/json.schema"
+    severity: error
+    resolved: false
+    then:
+      field: $ref
+      function: truthy
+  fdx-property-type-defined:
+    description: A valid type must be set for each property (fdx-schema-type ensures oneOf, allOf and $ref entities have type defined)
+    message: '{{property}} has 0 or >1 types from: "type", "const", "$ref", "oneOf", "allOf"'
+    severity: error
+    given:
+      - $..properties[*]
+    # Do not resolve here so $ref can be used as xor function option
+    resolved: false
+    then:
+      function: xor
+      functionOptions:
+        properties:
+          - type
+          - const
+          - $ref
+          - oneOf
+          - allOf
+  fdx-properties-camel-case:
+    description: Property names should be in camelCase
+    message: Property name not in camelCase - {{property}}
+    given: $.components.schemas[*].properties[*]~
+    severity: error
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+  fdx-schemas-pascal-case:
+    description: Schema entity and type names should be in PascalCase
+    message: Schema entity or type name not in PascalCase - {{property}}
+    given: $.components.schemas[*]~
+    severity: error
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: pascal
+  fdx-parameters-pascal-case:
+    description: Parameter definitions should be in PascalCase
+    message: Parameter definition not in PascalCase - {{property}}
+    given: $.components.parameters[*]~
+    severity: error
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: pascal
+  fdx-securitySchemes-pascal-case:
+    description: SecuritySchemes names should be in PascalCase
+    message: SecurityScheme name not in PascalCase - {{property}}
+    given: $.components.securitySchemes[*]~
+    severity: error
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: pascal
+  # Only V6.x response header definition is x-fapi-interaction-id,
+  # request header definitions validated in fdx-parameters-pascal-case
+  fdx-headers-kebob-case:
+    description: Header definitions should be in kebab-case
+    message: Header definition not in kebab-case - {{property}}
+    given: $.components.headers[*]~
+    severity: error
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: kebab
+  fdx-description-has-html:
+    description: Description contains legacy <br/> formatting
+    message: Description contains html formatting
+    given: $.components.schemas[*]
+    severity: warn
+    resolved: false
+    then:
+      field: description
+      function: pattern
+      functionOptions:
+        notMatch: "<"
+  fdx-enums-alphabetical:
+    description: Enumerated values should be in alphabetical order
+    message: Enum values not in alpha order - {{value}}
+    given: $.components.schemas[*]
+    severity: info
+    resolved: false
+    then:
+      field: enum
+      function: alphabetical
+  fdx-enums-uppercase:
+    description: Enumerated values should be in uppercase with underscore word breaks
+    message: Enums not in SCREAMING_SNAKE_CASE - {{value}}
+    given: $.components.schemas[*]..enum[*]
+    severity: info
+    resolved: false
+    then:
+      function: casing
+      functionOptions:
+        type: macro
+        disallowDigits: false
+  fdx-enums-defined-inline:
+    description: Enumerated values should be defined as a type and referenced
+    message: Define a referenced type for inline enum values
+    given: $.components.schemas[*].properties[*]
+    severity: warn
+    resolved: false
+    then:
+      field: enum
+      function: undefined
+  fdx-oneof-defined-inline:
+    description: 'oneOf: values should be defined as a type and referenced'
+    message: Replace inline oneOf elements with a referenced type
+    given:
+      - $..oneOf[*]
+    severity: warn
+    resolved: false
+    then:
+      field: $ref
+      function: truthy
+  fdx-parameters-alphabetical:
+    description: Parameters should be in alphabetical order
+    message: Parameters not in alphabetic order - {{property}}
+    given: $.components
+    severity: warn
+    resolved: false
+    then:
+      field: parameters
+      function: alphabetical
+  fdx-responses-numerical:
+    description: Responses should be in numerical order
+    message: Responses not in numeric order - {{property}}
+    given:
+      - $.components
+      - $.paths[*].[get,put,post,delete,options,head,patch,trace]
+    severity: warn
+    then:
+      field: responses
+      function: alphabetical
+  fdx-paths-alphabetical:
+    description: Paths should be in alphabetical order
+    message: Paths not in alphabetic order
+    given: $
+    severity: warn
+    then:
+      field: paths
+      function: alphabetical
+  fdx-valid-formats:
+    description: Only JSON Schema and OAS-defined format values are permitted.
+      Enumeration includes only current FDX values, others can be added in
+      future as they are used, e.g. float, time, duration, byte, email, etc.
+    message: Schema format is not used by FDX - {{value}}
+    given: $..format
+    severity: warn
+    resolved: false
+    then:
+      function: enumeration
+      functionOptions:
+        values:
+          - base64
+          - binary
+          - date
+          - date-time
+          - double
+          - int32
+          - uri
+          - uri-reference
+          - uuid
+  fdx-use-datestring-type:
+    description: Date formatted fields should use DateString
+    message: 'Use DateString instead of format: {{value}}'
+    given:
+      - "$..format"
+    severity: warn
+    resolved: false
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: 'date$'
+  fdx-use-timestamp-type:
+    description: Date-time formatted fields should use Timestamp
+    message: 'Use Timestamp instead of format: {{value}}'
+    given:
+      - "$..format"
+    severity: warn
+    resolved: false
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: 'date-time'
+  fdx-valid-types:
+    description: Only JSON Schema and OAS-defined type values are permitted.
+      Enumeration includes only current FDX values, others can be added in
+      future as they are used, e.g. null.
+    message: Schema type is not used by FDX - {{value}}
+    given: $.components.schemas[*].properties[*]..type
+    severity: warn
+    resolved: false
+    then:
+      function: enumeration
+      functionOptions:
+        values:
+          - array
+          - boolean
+          - integer
+          - number
+          - object
+          - string
+  fdx-components-self-reference:
+    description: fdxapi.components.yaml is used as an external reference within itself
+    message: fdxapi.components.yaml should not reference itself
+    given:
+      - "$..$ref"
+    severity: off
+    resolved: false
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: 'fdxapi.components.yaml'
+  fdx-api-security-schemes:
+    description: API file must define valid security schemes
+    message: File not defining any security schemes
+    given:
+      - "$.components"
+    severity: error
+    then:
+      field: securitySchemes
+      function: truthy
+  # Not all API files will specify file-level security.
+  # Turn off rule in overrides where security is being specified at operation level
+  fdx-api-includes-security:
+    description: >-
+      Some FDX API files must specify required security, they are:
+      consent, event-notifications, fraud, meta, recipient-registration and registry
+    message: File not specifying required security
+    given:
+      - "$"
+    severity: error
+    then:
+      field: security
+      function: truthy
+  # In FDX v6.0.0 and FDX v6.1.0 only a minority of operations will specify security.
+  # Turn on rule in overrides where security is being specified at operation level
+  fdx-operation-includes-security:
+    description: Operation definitions must specify required security
+    message: Operation not specifying required security
+    given:
+      - "$.paths[*].[get,put,post,delete,options,head,patch,trace]"
+    severity: off
+    then:
+      field: security
+      function: truthy
+  fdx-paths-min-three-parms:
+    description: Three FDX request parameters must be included for every path, including management APIs
+    message: Path does not define three FDX default parameters
+    # Required parameters:
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FapiInteractionIdHeader'
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiActorTypeHeader'
+    # and one of:
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataProviderIdHeader'
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataRecipientIdHeader'
+    given: $.paths[*]
+    severity: error
+    resolved: false
+    then:
+      - field: parameters
+        function: truthy
+      - field: parameters
+        function: length
+        functionOptions:
+          min: 3
+  fdx-paths-min-four-parms:
+    description: Four FDX request parameters must be included for every path, except management APIs with just three
+    message: Path does not define four standard FDX parameters
+    # Required parameters:
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FapiInteractionIdHeader'
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiActorTypeHeader'
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataProviderIdHeader'
+    # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataRecipientIdHeader'
+    given: $.paths[*]
+    severity: error
+    resolved: false
+    then:
+      - field: parameters
+        function: truthy
+      - field: parameters
+        function: length
+        functionOptions:
+          min: 4
+  fdx-paths-min-five-parms:
+    description: Five FDX request parameters are defined for many paths,
+      except management APIs with just three and non-sensitive data APIs with just four
+    message: Path does not define five or more standard FDX parameters
+    given: $.paths[*]
+    severity: error
+    resolved: false
+    then:
+      - field: parameters
+        function: truthy
+      - field: parameters
+        function: length
+        functionOptions:
+          min: 5
+  fdx-paths-required-parms:
+    description: The FDX request parameter names must be standard for every path
+    message: Path request parameter does not match defined names - {{value}}
+    given:
+      - $.paths[*].parameters[*]
+    severity: error
+    resolved: true
+    then:
+      field: name
+      function: pattern
+      functionOptions:
+        # match any "xxxId" or "_id" path parameter (latter for RFC 0356), six general parameters, Accept-Language (in Core) and Authorization (explicit in Tax)
+        match: '^([a-z][a-zA-Z]*(Id|_id)|x-fapi-interaction-id|FDX-API-Actor-Type|FDX-API-Client-Public-Key|FDX-API-Data-Provider-Id|FDX-API-Data-Recipient-Id|FDX-API-Version|Accept-Language|Authorization)$'
+  fdx-response-headers:
+    description: At least one header (x-fapi-interaction-id) must be included for every response
+    message: Response does not include headers (for x-fapi-interaction-id)
+    given:
+      - $.paths[*].[get,put,post,delete,options,head,patch,trace].responses[*]
+      - $.components.responses[*]
+    severity: error
+    resolved: true
+    then:
+      - field: headers
+        function: defined
+      - field: description
+        function: defined
+  fdx-reqd-response-header:
+    description: The header x-fapi-interaction-id must be included for every response
+    message: Response headers do not include x-fapi-interaction-id
+    given:
+      - $.paths[*].[get,put,post,delete,options,head,patch,trace].responses[*].headers
+      - $.components.responses[*].headers
+    severity: error
+    resolved: true
+    then:
+      field: x-fapi-interaction-id
+      function: defined
+
+  fdx-operation-id-match-enum:
+    description: New Operation IDs must be added in fdxapi.meta.yaml and this rule
+    message: In fdx.spectral.ruleset.yaml and fdxapi.meta.yaml add {{value}}
+    given: $.paths[*].[get,put,post,delete,options,head,patch,trace]
+    severity: error
+    then:
+      field: operationId
+      function: enumeration
+      functionOptions:
+        # Latest values from fdxapi.meta.yaml's OperationId
+        values:
+          # fdxapi.components.yaml - 0
+          # fdxapi.consent.yaml - 3
+          - getConsentGrant
+          - getConsentRevocation
+          - revokeConsentGrant
+          # fdxapi.core.yaml - 16
+          - getAccount
+          - getAccountAssetTransferNetworks
+          - getAccountContact
+          - getAccountPaymentNetwork
+          - getAccountPaymentNetworks
+          - getAccountStatement
+          - getAccountTransactionImages
+          - getPaymentNetworkLifecycleEvents
+          - getRewardProgram
+          - getRewardProgramCategories
+          - getTermsAndConditions
+          - searchForAccountRewardTransactions
+          - searchForAccounts
+          - searchForAccountStatements
+          - searchForAccountTransactions
+          - searchRewardPrograms
+          - revokePaymentNetworkId
+          # fdxapi.customer.yaml - 3
+          - getCustomer
+          - getCustomerInfo
+          - getCustomers
+          # fdxapi.event-notifications.yaml - 4
+          - createNotificationSubscription
+          - deleteNotificationSubscription
+          - getNotifications
+          - getNotificationSubscription
+          - publishNotification
+          # fdxapi.fraud.yaml - deprecated by RFC 0409 for v6.5
+          - reportSuspectedFraudIncident
+          # fdxapi.meta.yaml - 3
+          - getAvailability
+          - getCapability
+          - getCertificationMetrics
+          # fdxapi.money-movement.yaml - 31
+          - cancelPayment
+          - cancelRecurringPayment
+          - cancelTransfer
+          - createPayee
+          - createPaymentInitiationParty
+          - createPaymentMethod
+          - deletePayee
+          - deletePaymentInitiationParty
+          - deletePaymentMethodRegistration
+          - getPayee
+          - getPayment
+          - getPaymentInitiationParty
+          - getPaymentMethodRegistration
+          - getPaymentsForRecurringPayment
+          - getRecurringPayment
+          - getTransfer
+          - listPaymentInitiationParties
+          - requestAccountTransfer
+          - schedulePayment
+          - scheduleRecurringPayment
+          - searchForPayees
+          - searchForPayments
+          - searchForRecurringPayments
+          - searchForTransfers
+          - updateAccountTransfer
+          - updatePayee
+          - updatePayment
+          - updatePaymentInitiationParty
+          - updatePaymentMethodRegistration
+          - updateRecurringPayment
+          # fdxapi.payroll.yaml - 2
+          - getPayrollReport
+          - getPayrollReports
+          - getPaystub
+          - getPaystubs
+          # fdxapi.recipient-registration.yaml - 4
+          - createRecipient
+          - deleteRecipient
+          - getRecipient
+          - updateRecipient
+          # fdxapi.registry.yaml - 4
+          - getDataProvider
+          - getRegistryRecipient
+          - getRegistryRecipients
+          - searchForDataProviders
+          # fdxapi.tax.yaml - 4
+          - createTaxForm
+          - getTaxForm
+          - searchForTaxForms
+          - updateTaxForm
+          # fdxapi.template.yaml - 2
+          - getResource
+          - getResources
+  # Uncomment with adoption of RFC 0275
+  # fdx-no-request-undefined-props:
+  #   description: Endpoints must not allow undefined properties in request payloads
+  #   message: 'Request body schema must have unevaluatedProperties: false'
+  #   given:
+  #     # - "#RequestSchemas"
+  #     - "$.paths[*]..requestBody..application/json.schema"
+  #     - "$.paths[*]..requestBody..application/json.schema.items"
+  #   severity: warn
+  #   resolved: true
+  #   then:
+  #     - field: unevaluatedProperties
+  #       function: defined
+  #     - field: unevaluatedProperties
+  #       function: falsy
+overrides:
+  # Override for files not specifying API-level security
+  - files:
+      - '../**/fdxapi.components.yaml'
+      - '../**/fdxapi.core.yaml'
+      - '../**/fdxapi.customer.yaml'
+      - '../**/fdxapi.money-movement.yaml'
+      - '../**/fdxapi.payroll.yaml'
+      - '../**/fdxapi.tax.yaml'
+      - '../**/fdxapi.tax1065k3.yaml'
+    rules:
+      fdx-api-includes-security: off
+  # Turn on for files or operations which specify operation-level security
+  - files:
+      # - '../**/fdxapi.core.yaml'
+      # - '../**/fdxapi.customer.yaml'
+      # - '../**/fdxapi.money-movement.yaml'
+      # - '../**/fdxapi.payroll.yaml'
+      - '../**/fdxapi.tax.yaml'
+    rules:
+      fdx-operation-includes-security: error
+  - files:
+      - '../**/fdxapi.tax1065k3.yaml'
+    rules:
+      fdx-api-security-schemes: off
+      openapi-tags: off
+  - files:
+      - '../**/fdxapi.extensions.yaml'
+    rules:
+      oas3-api-servers: off
+      oas3-unused-component: off
+      openapi-tags: off
+      fdx-api-includes-security: off
+      fdx-api-security-schemes: off
+      fdx-schemas-pascal-case: off
+  - files:
+      - '../**/fdxapi.components.yaml'
+    rules:
+      fdx-components-self-reference: error
+      oas3-unused-component: off
+      openapi-tags: off
+  - files:
+      - '../**/fdxapi.components.yaml#/components/schemas/DateString/format'
+      - '../**/fdxapi.components.yaml#/components/schemas/Timestamp/format'
+    rules:
+      fdx-use-datestring-type: off
+      fdx-use-timestamp-type: off
+  - files:
+      - '../**/fdxapi.consent.yaml#/components/schemas/ConsentRequest'
+      - '../**/fdxapi.consent.yaml#/components/schemas/FdxTokenIntrospectionResponse'
+      - '../**/fdxapi.consent.yaml#/components/schemas/JwtProfile'
+      - '../**/fdxapi.tax.yaml#/components/schemas/BasicAuthForQR'
+      - '../**/fdxapi.tax.yaml#/components/schemas/TaxDataForQR'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/Tax1065ScheduleK3'
+    rules:
+      oas3-unused-component: off
+  - files:
+      - '../**/fdxapi.customer.yaml#/paths/~1customers~1current' # show as first in file
+    rules:
+      fdx-paths-alphabetical: off
+  - files:
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1reward-transactions/get/tags'
+    rules:
+      operation-singular-tag: off
+  - files:
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1payment-networks~1%7BpaymentNetworkId%7D~1revocation/put/responses/204'
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1statements~1%7BstatementId%7D/get/responses/302'
+      - '../**/fdxapi.consent.yaml#/paths/~1consents~1%7BconsentId%7D~1revocation/put/responses/204'
+      - '../**/fdxapi.event-notifications.yaml#/paths/~1notification-subscriptions~1%7BsubscriptionId%7D/delete/responses/204'
+      - '../**/fdxapi.event-notifications.yaml#/paths/~1notifications/post/responses/204'
+      - '../**/fdxapi.fraud.yaml#/paths/~1fraud~1suspected-incident/post/responses/200'
+      - '../**/fdxapi.money-movement.yaml#/paths/~1payment-initiation-parties~1%7BpaymentInitiationPartyId%7D/patch/responses/200'
+      - '../**/fdxapi.money-movement.yaml#/paths/~1payment-initiation-parties~1%7BpaymentInitiationPartyId%7D/delete/responses/204'
+      - '../**/fdxapi.money-movement.yaml#/paths/~1payment-initiation-parties~1%7BpaymentInitiationPartyId%7D~1payment-methods~1%7BpaymentMethodRegistrationId%7D/patch/responses/200'
+      - '../**/fdxapi.money-movement.yaml#/paths/~1payment-initiation-parties~1%7BpaymentInitiationPartyId%7D~1payment-methods~1%7BpaymentMethodRegistrationId%7D/delete/responses/204'
+      - '../**/fdxapi.recipient-registration.yaml#/paths/~1register~1%7BclientId%7D/delete/responses/204'
+      - '../**/fdxapi.tax.yaml#/paths/~1tax-forms~1%7BtaxFormId%7D/put/responses/200'
+    rules:
+        fdx-response-missing-content: off
+  # For next two overrides, management API paths don't require FDX-API-Data-Recipient-Id parameter
+  # and non-sensitive data API paths don't require FDX-API-Client-Public-Key parameter
+  - files:
+      - '../**/fdxapi.event-notifications.yaml'
+      - '../**/fdxapi.fraud.yaml'
+      - '../**/fdxapi.meta.yaml'
+      - '../**/fdxapi.recipient-registration.yaml'
+      - '../**/fdxapi.registry.yaml'
+    rules:
+      fdx-paths-min-four-parms: off
+      fdx-paths-min-five-parms: off
+  - files:
+      - '../**/fdxapi.consent.yaml'
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1reward-transactions'
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1statements'
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1transaction-images~1%7BimageId%7D'
+      - '../**/fdxapi.core.yaml#/paths/~1reward-programs'
+      - '../**/fdxapi.core.yaml#/paths/~1reward-programs~1%7BrewardProgramId%7D'
+      - '../**/fdxapi.core.yaml#/paths/~1reward-programs~1%7BrewardProgramId%7D~1categories'
+      - '../**/fdxapi.money-movement.yaml'
+    rules:
+      fdx-paths-min-five-parms: off
+  - files:
+      - '../**/fdxapi.event-notifications.yaml#/paths/~1notifications'  # publish
+      - '../**/fdxapi.fraud.yaml#/paths/~1fraud~1suspected-incident'    # report
+      - '../**/fdxapi.money-movement.yaml#/paths/~1transfers'           # request
+    rules:
+      fdx-operation-id-match-post: off
+  - files:
+      - '../**/fdxapi.consent.yaml#/paths/~1consents~1%7BconsentId%7D~1revocation'  # revoke
+      - '../**/fdxapi.core.yaml#/paths/~1accounts~1%7BaccountId%7D~1payment-networks~1%7BpaymentNetworkId%7D~1revocation/put'  # revoke
+    rules:
+      fdx-operation-id-match-update: off
+  - files:
+      - '../**/fdxapi.recipient-registration.yaml#/components/parameters/ClientIdPath/name'  # uses client_id
+    rules:
+      fdx-paths-required-parms: off
+  - files:
+      - '../**/fdxapi.money-movement.yaml#/paths/~1payment-initiation-parties'  # list
+    rules:
+      fdx-operation-id-match-get: off
+  - files:
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/PaymentMethod/allOf/1' # has oneOf
+    rules:
+      fdx-allof-type-defined: off
+  - files:
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/BICFIDec2014Identifier' # deprecated by BIC by some later date
+    rules:
+      fdx-deprecated-element: off
+  - files:
+      - '../**/fdxapi.components.yaml#/components/schemas/Intermediary'
+      - '../**/fdxapi.components.yaml#/components/schemas/RecipientRequest'
+      - '../**/fdxapi.components.yaml#/components/schemas/RegistryReference'
+      - '../**/fdxapi.consent.yaml#/components/schemas/FdxTokenIntrospectionResponse/properties/client_id'
+      - '../**/fdxapi.consent.yaml#/components/schemas/JwtProfile/properties/client_id'
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/BICFIDec2014Identifier/properties/bicFIDec2014Id'
+      - '../**/fdxapi.tax.yaml#/components/schemas/OfferOfHealthInsuranceCoverage/properties/section4980HCode'
+      - '../**/fdxapi.tax.yaml#/components/schemas/TaxData/properties/tax1120SK1'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/PartnershipCfcOwnerInfo/properties/aggregateShareSubpartFIncome'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/Part8PartnershipForeignCorpIncome/properties/subpartFOther'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/Part8PartnershipForeignCorpIncome/properties/recapturedSubpartFIncome'
+    rules:
+      fdx-properties-camel-case: off
+  - files:
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/BICFIDec2014Identifier'
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/IBAN2007Identifier'
+      - '../**/fdxapi.tax.yaml#/components/schemas/BasicAuthForQR'
+      - '../**/fdxapi.tax.yaml#/components/schemas/K1StatementAQbiItems'
+      - '../**/fdxapi.tax.yaml#/components/schemas/K1StatementCQbiItems'
+      - '../**/fdxapi.tax.yaml#/components/schemas/Tax1120SK1'
+      - '../**/fdxapi.tax.yaml#/components/schemas/TaxDataForQR'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/SubpartFForeignCorpIncome'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/SubpartFForeignCorpIncomeDetail'
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/SubpartFOther'
+    rules:
+      fdx-schemas-pascal-case: off
+  - files:
+      - '../**/fdxapi.core.yaml#/components/schemas/DocumentStatus' # listed in flow order
+      - '../**/fdxapi.core.yaml#/components/schemas/PeriodCertainType/enum/0' # listed in natural order
+      - '../**/fdxapi.core.yaml#/components/schemas/SubAccountType/enum/3' # OTHER listed at end
+      - '../**/fdxapi.event-notifications.yaml#/components/schemas/NotificationPriority' # listed in descending priority
+      - '../**/fdxapi.event-notifications.yaml#/components/schemas/NotificationSeverity' # listed in descending severity
+      - '../**/fdxapi.meta.yaml#/components/schemas/AvailabilityStatus' # listed in flow order
+      - '../**/fdxapi.meta.yaml#/components/schemas/OperationId/enum/2' # listed in filename order
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/RecurringPaymentFrequency' # listed in ascending length
+      - '../**/fdxapi.payroll.yaml#/components/schemas/PayrollFrequency' # listed in ascending length
+      - '../**/fdxapi.tax.yaml#/components/schemas/CoverageMonth' # listed in month order
+      - '../**/fdxapi.tax.yaml#/components/schemas/MonthAbbreviation' # listed in month order
+    rules:
+      fdx-enums-alphabetical: off
+  - files:
+      - '../**/fdxapi.components.yaml#/components/schemas/AccountType/enum/0' # 401A
+      - '../**/fdxapi.components.yaml#/components/schemas/AccountType/enum/1' # 401K
+      - '../**/fdxapi.components.yaml#/components/schemas/AccountType/enum/2' # 403B
+      - '../**/fdxapi.components.yaml#/components/schemas/AccountType/enum/3' # '529'
+      - '../**/fdxapi.components.yaml#/components/schemas/ContentTypes'
+      - '../**/fdxapi.components.yaml#/components/schemas/FdxOauthScope'
+      - '../**/fdxapi.components.yaml#/components/schemas/FdxVersion'
+      - '../**/fdxapi.components.yaml#/components/schemas/OauthScope'
+      - '../**/fdxapi.components.yaml#/components/schemas/ResultType'
+      - '../**/fdxapi.core.yaml#/components/schemas/PeriodCertainType'
+      - '../**/fdxapi.meta.yaml#/components/schemas/OperationId'
+      - '../**/fdxapi.payroll.yaml#/components/schemas/PayrollFrequency/enum/4' # EVERY_2_6_WEEKS
+      - '../**/fdxapi.payroll.yaml#/components/schemas/PayrollFrequency/enum/6' # EVERY_5_2_WEEKS
+      - '../**/fdxapi.tax.yaml#/components/schemas/TaxFormType'
+    rules:
+      fdx-enums-uppercase: off
+  - files:
+      - '../**/fdxapi.components.yaml#/components/schemas/TelephoneNumberPlusExtension' # last entity
+      - '../**/fdxapi.consent.yaml#/components/schemas/JwtProfile' # last entity
+      - '../**/fdxapi.core.yaml#/components/schemas/Vesting' # last entity
+      - '../**/fdxapi.event-notifications.yaml#/components/schemas/NotificationSubscription' # last entity
+      - '../**/fdxapi.meta.yaml#/components/schemas/PlannedAvailability' # last entity
+      - '../**/fdxapi.money-movement.yaml#/components/schemas/UpdatesMetadata' # last entity
+      - '../**/fdxapi.payroll.yaml#/components/schemas/RegionalTaxWithholding' # last entity
+      - '../**/fdxapi.tax.yaml#/components/schemas/TaxW2G' # last entity
+      - '../**/fdxapi.tax1065k3.yaml#/components/schemas/Tax1065ScheduleK3' # first entity, file in entity referenced order
+      - '../**/fdxapi.template.yaml#/components/schemas/ResourceSummary' # last entity
+    rules:
+      fdx-entity-alphabetical: off

@@ -1,0 +1,33 @@
+Creating API zip file: FDX_API_v6.5.0.zip
+2025-12-10T09:50:58+05:30 API/fdxapi.components.yaml - resolved review comments
+2025-12-10T10:51:35+05:30 API/fdxapi.consent.yaml - build issue fix
+2026-01-15T19:12:32-06:00 API/fdxapi.core.yaml - Add status field defined in RFC 0387 and missing after implementations
+2025-12-09T22:04:49+05:30 API/fdxapi.customer.yaml - Resolved merge conflicts
+2025-12-10T09:50:58+05:30 API/fdxapi.event-notifications.yaml - resolved review comments
+2025-12-01T09:18:30-06:00 API/fdxapi.extensions.yaml - Update repository to start version 6.5.0
+2025-12-03T13:00:47+05:30 API/fdxapi.fraud.yaml - DRAFT 0409 - Deprecate /fraud/suspected-incident in favor of /notifications API code changes
+2025-12-10T11:35:38+05:30 API/fdxapi.meta.yaml - Fixed validation error
+2025-12-09T13:55:13-06:00 API/fdxapi.money-movement.yaml - Update spectral rules for v6.5 and a few missed v6.5 RFC cleanup items (blank lines, public key parameter)
+2025-12-09T17:51:35+05:30 API/fdxapi.payroll.yaml - Review comment changes
+2025-12-08T21:34:55+05:30 API/fdxapi.recipient-registration.yaml - Revert-RFC 0356 - Updates to Registration to Support Four-Party Data Sharing
+2025-12-09T17:51:35+05:30 API/fdxapi.registry.yaml - Review comment changes
+2025-12-09T17:51:35+05:30 API/fdxapi.tax.yaml - Review comment changes
+2025-12-01T09:18:30-06:00 API/fdxapi.tax1065k3.yaml - Update repository to start version 6.5.0
+2025-12-09T13:55:13-06:00 API/fdxapi.template.yaml - Update spectral rules for v6.5 and a few missed v6.5 RFC cleanup items (blank lines, public key parameter)
+
+Creating tools zip file: fdx-tools-v6.5.0.zip
+2025-12-23T13:54:55-06:00 README.md - Update metrics and csdf tag scripts for release v6.5
+2025-12-24T10:44:50-06:00 bitbucket-pipelines.yml - Add spectral version 6.14.3 comment
+2025-05-02T20:56:01+00:00 config/components-yamllint.yaml - Merged in feature/build-1364 (pull request #935)
+2025-05-02T20:56:01+00:00 config/core-yamllint.yaml - Merged in feature/build-1364 (pull request #935)
+2025-05-05T10:14:54-05:00 config/csdf-6.4.csv - Update x-csdf-account-technical to x-csdf-technical
+2025-05-05T10:14:54-05:00 config/csdf-6.4.xlsx - Update x-csdf-account-technical to x-csdf-technical
+2026-01-15T19:12:32-06:00 config/fdx.spectral.ruleset.yaml - Add status field defined in RFC 0387 and missing after implementations
+2026-01-15T19:12:32-06:00 config/fdx.test.spectral.ruleset.yaml - Add status field defined in RFC 0387 and missing after implementations
+2026-01-15T12:39:03-06:00 config/fdxapi.components.yaml - Add missing content: line in new API response
+2026-01-15T19:12:32-06:00 config/fdxapi.meta.yaml - Add status field defined in RFC 0387 and missing after implementations
+2025-05-02T20:56:01+00:00 config/yamllint.yaml - Merged in feature/build-1364 (pull request #935)
+2025-05-02T20:56:01+00:00 fdxlint.sh - Merged in feature/build-1364 (pull request #935)
+2025-12-02T09:07:18-06:00 lint.sh - Reduce slow calls to spectral version
+2025-05-02T20:56:01+00:00 testlint-report.sh - Merged in feature/build-1364 (pull request #935)
+2025-05-02T20:56:01+00:00 testlint.sh - Merged in feature/build-1364 (pull request #935)

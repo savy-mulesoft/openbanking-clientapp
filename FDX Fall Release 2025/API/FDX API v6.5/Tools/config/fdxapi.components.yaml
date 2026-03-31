@@ -1,0 +1,273 @@
+openapi: 3.1.0
+info:
+  version: '9.9.9'
+  title: Ruleset testing file for FDX Shared Components API
+  description: Ruleset testing file for Financial Data Exchange Shared Components API
+  contact:
+    name: Financial Data Exchange
+    url: 'https://financialdataexchange.org/'
+    email: fdxsupport@financialdataexchange.org
+  license:
+    name: FDX API License Agreement (11-13-2019)
+    url: 'https://financialdataexchange.org/common/Uploaded%20files/Policies/FDX%20API%20License%20Agreement-(11-13-2019).pdf'
+servers:
+  - url: 'https://api.fi.com/fdx/v5'
+    description: Financial Data Exchange Shared Components API
+# No security:, for testing spectral rule fdx-api-includes-security
+
+# paths: {}
+
+components:
+
+  # No securitySchemes:, for testing spectral rule fdx-api-security-schemes
+
+  parameters:
+    ############################################################
+    #
+    # Shared request parameters (usable by core and all extensions)
+    #
+    ############################################################
+
+    FapiInteractionIdHeader:
+      name: x-fapi-interaction-id
+      in: header
+      description: Unique identifier for this interaction
+      schema:
+        type: string
+      example: rrt-9705854100-bgce-821-23397-1
+
+    FdxApiActorTypeHeader:
+      name: FDX-API-Actor-Type
+      in: header
+      description: Identifies whether the customer is present (USER) or it is a BATCH operation
+      schema:
+        $ref: '#/components/schemas/ActorType'
+      example: BATCH
+
+    FdxApiDataProviderIdHeader:
+      name: FDX-API-Data-Provider-Id
+      in: header
+      description: ID for the financial institution responding to the request
+      schema:
+        type: string
+        description: >-
+          If the FDX API service is provided by a service bureau which uses the same end point for
+          multiple institutions, the FDX API client MUST provide a header that identifies the desired
+          financial institution. This corresponds to a data_provider_id in the registry. This header
+          MAY be omitted if identifying a data provider is not required by the API host
+      required: false
+
+    ResultTypeQuery:
+      name: resultType
+      in: query
+      description: >-
+        Flag to indicate if you want a lightweight array of metadata (AccountDescriptor
+        or Tax or Operations) or full item details (Account or a Tax subclass or
+        Availability details). If set to 'lightweight', should only return the
+        fields associated with the metadata entity.
+        This field is not required, defaults to lightweight
+      required: false
+      schema:
+        $ref: '#/components/schemas/ResultType'
+
+  headers:
+    ############################################################
+    #
+    # Standard response headers
+    #
+    ############################################################
+
+    x-fapi-interaction-id:
+      description: Unique identifier for this interaction
+      schema:
+        type: string
+      example: rrt-970585410023330903-b-gce-821-23397-1
+
+  schemas:
+    ############################################################
+    #
+    # Shared data entities (usable by core and all extensions)
+    #
+    ############################################################
+
+    BusinessName:
+      title: Business name
+      description: Name 1, Name 2
+      # for testing spectral rule fdx-schema-type
+      # type: object
+      # for testing spectral rules fdx-deprecated-element, fdx-csdf-account-categories and fdx-csdf-technical
+      deprecated: true
+      x-fdx-csdf-account-categories: [BAD]
+      x-fdx-csdf-technical: false
+      properties:
+        name1:
+          description: Name line 1
+          type: string
+          x-fdx-csdf-account-categories: [ANY]
+        name2:
+          description: Name line 2
+          type: string
+          # for testing spectral rules fdx-deprecated-element, fdx-csdf-account-categories and fdx-csdf-technical
+          deprecated: false
+          x-fdx-csdf-account-categories: [BAD]
+          x-fdx-csdf-technical: false
+
+    HateoasLink:
+      title: HATEOAS Link
+      description: REST application constraint (Hypermedia As The Engine Of Application State)
+      required: [href]
+      type: object
+      properties:
+        href:
+          type: string
+          format: uri-reference
+          description: URL to invoke the action on the resource
+          example: "https://api.fi.com/fdx/v4/accounts/12345"
+        action:
+          description: HTTP Method to use for the request
+          $ref: '#/components/schemas/HttpAction'
+        rel:
+          description: >-
+            Relation of this link to its containing entity, as defined by and with many
+            example relation values at [IETF RFC5988](https://datatracker.ietf.org/doc/html/rfc5988)
+          type: string
+          # for testing spectral rule fdx-valid-formats
+          format: int16
+        types:
+          type: array
+          items:
+            # for testing spectral rule fdx-components-self-reference
+            $ref: './fdxapi.components.yaml#/components/schemas/ContentTypes'
+          description: Content-types that can be used in the Accept header
+
+    ############################################################
+    #
+    # Shared data types (usable by core and all extensions)
+    #
+    ############################################################
+
+    ActorType:
+      title: FDX API Actor Type
+      description: >-
+        Indicates whether a customer is present and has requested the operation (USER),
+        or if a batch job has requested the operation (BATCH)
+      type: string
+      enum:
+        - BATCH
+        - USER
+
+    ContentTypes:
+      title: Content Types
+      description: Types of document formats. (Suggested values)
+      type: string
+      enum:
+        - application/json
+        - application/pdf
+        - image/gif
+        - image/jpeg
+        - image/png
+        - image/tiff
+
+    FdxVersion:
+      title: FDX Version
+      description: The list of prior and current FDX major and minor versions.
+      type: string
+      enum:
+        - V1.0
+        - V2.0
+        - V2.1
+        - V3.0
+        - V4.0
+        - V4.1
+        - V4.2
+        - V4.5
+        - V4.6
+        - V4.6.1
+        - V5.0
+        - V5.0.0
+        - V5.0.1
+        - V5.0.2
+        - V5.1
+        - V5.1.0
+        - V5.1.1
+        - V5.2
+        - V5.2.0
+        - V5.2.1
+        - V5.2.2
+        - V5.3
+        - V5.3.0
+        - V5.3.1
+        - V5.3.2
+        - V5.3.3
+        - V5.3.4
+        - V5.4.0
+        - V5.4.1
+        - V6.0.0
+        - V6.1.0
+        - V6.2.0
+        - V6.3.0
+        - V6.3.1
+        - V6.4.0
+        - V6.4.1
+        - V6.5.0
+
+    HttpAction:
+      title: HTTP Action Type
+      description: HTTP Methods to use for requests
+      type: string
+      enum:
+        - DELETE
+        - GET
+        - PATCH
+        - POST
+        - PUT
+
+    ResultType:
+      title: Result Type
+      description: >-
+        Flag to indicate if you want a lightweight array of metadata (AccountDescriptor
+        or Tax or Operations) or full item details (Account or a Tax subclass or
+        Availability details). If set to 'lightweight', should only return the
+        fields associated with the metadata entity.
+      type: string
+      enum:
+        # for testing spectral rule fdx-enums-uppercase
+        - details
+        - lightweight
+      default: lightweight
+
+    Timestamp:
+      title: Timestamp
+      description: >-
+        ISO 8601 date-time in format 'YYYY-MM-DDThh:mm:ss.nnn[Z|[+|-]hh:mm]' according to
+        [IETF RFC3339](https://xml2rfc.tools.ietf.org/public/rfc/html/rfc3339.html#anchor14)
+      type: string
+      format: date-time
+      example: '2021-07-15T14:46:41.375Z'
+
+  responses:
+    ############################################################
+    #
+    # Standard error responses
+    #
+    ############################################################
+
+    '406':
+      description: Content Type not Supported
+      headers:
+        # for testing spectral rule fdx-reqd-response-header
+        not-x-fapi-interaction-id:
+          $ref: '#/components/headers/x-fapi-interaction-id'
+      content:
+        application/json:
+          schema:
+            # for testing spectral rule fdx-paths-only-ref-schemas
+            type: string
+            # for testing spectral rule fdx-no-examples-under-schema
+            example: Content Type not Supported
+
+    # for testing spectral rule fdx-responses-numerical
+    '202':
+      description: Response not in numerical order
+      # No headers:, for testing spectral rule fdx-response-headers
+      # No content:, for testing spectral rule fdx-response-missing-content

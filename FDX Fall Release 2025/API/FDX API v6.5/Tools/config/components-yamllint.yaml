@@ -1,0 +1,10 @@
+# https://yamllint.readthedocs.io/en/stable/configuration.html
+# used by ../bin/lint.sh
+---
+extends: ./config/yamllint.yaml
+
+rules:
+  line-length:
+    # Suggested:
+    # max: 120
+    max: 300

@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  version: '6.5.0'
+  title: FDX V6.5.0 API Extensions
+  description: Defined extensions to Financial Data Exchange V6.5.0 API
+  contact:
+    name: Financial Data Exchange
+    url: 'https://financialdataexchange.org/'
+    email: fdxsupport@financialdataexchange.org
+  license:
+    name: FDX API License Agreement (11-13-2019)
+    url: 'https://financialdataexchange.org/common/Uploaded%20files/Policies/FDX%20API%20License%20Agreement-(11-13-2019).pdf'
+  x-fdx-csdf-technical: true
+# servers: {}
+
+# paths: {}
+
+components:
+
+  schemas:
+    ############################################################
+    #
+    # Defined schemas for FDX extensions
+    #
+    ############################################################
+
+    CsdfAccountCategory:
+      title: Account Category enum for FDX CSDF extension tags
+      description: The values for the FDX x-fdx-csdf-account-categories extension tag to mark
+        all the FDX API entities which are candidates for U.S. CFPB section 1033 Personal Financial
+        Data Rules (PFDR) regulations for Consensus Standard Data Format (CSDF) covered data,
+        according to Data Provider's interpretation. One or more of `ANY`, `REG_E` or `REG_Z`.
+          * REG_E - The deposit accounts and funds transfer activities to which U.S. banking
+            Regulation E "Electronic Funds Transfer Act" (EFTA) applies
+          * REG_Z - The loan and line of credit accounts and credit transaction activities to
+            which U.S. banking Regulation Z "Truth in Lending Act" (TILA) applies
+          * ANY - The FDX-defined entity and activity data to which any of these mentioned
+            U.S. banking regulations apply
+      type: string
+      enum:
+        - ANY
+        - REG_E
+        - REG_Z
+
+    x-fdx-csdf-account-categories:
+      title: FDX CSDF Account extension tag
+      description: The FDX x-fdx-csdf-account-categories extension tag marks all the FDX API
+        entities and properties which are candidates for U.S. CFPB section 1033 Personal Financial
+        Data Rules (PFDR) regulations for Consensus Standard Data Format (CSDF) covered data.
+        One or more of `ANY`, `REG_E` or `REG_Z`, as defined by `CsdfAccountCategory`
+      type: array
+      items:
+        $ref: '#/components/schemas/CsdfAccountCategory'
+
+    x-fdx-csdf-technical:
+      title: FDX CSDF Technical extension tag
+      description: The FDX x-fdx-csdf-technical extension tag marks all the FDX API
+        entities and properties which may be needed for technical API implementation
+        reasons to deliver the entities and properties which are candidates as
+        covered data for U.S. CFPB section 1033 Personal Financial Data Rules (PFDR)
+        regulations for a Consensus Standard Data Format (CSDF). If `true` indicates
+        that the entity or property likely should be included by a Data Provider
+      type: boolean

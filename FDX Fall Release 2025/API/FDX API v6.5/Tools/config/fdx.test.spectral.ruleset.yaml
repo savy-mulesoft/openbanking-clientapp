@@ -1,0 +1,81 @@
+# FDX test ruleset and overrides for the Spectral OpenAPI validator/linter
+#
+# These are additional rules and overrides used for testing the
+# FDX spectral ruleset itself. Probably not valuable or needed for
+# implementors of the FDX specifications.
+#
+# This ruleset is used against two test files
+#   * config/fdxapi.components.yaml and
+#   * config/fdxapi.meta.yaml,
+# which have been modified to have every possible rule
+# violation of the FDX-specific rules. This will run
+# with every pipeline build and a sudden change in these
+# violations being reported will give us an indication
+# that overall validation itself may be having issues.
+#
+
+---
+extends:
+  - ./fdx.spectral.ruleset.yaml
+rules:
+  # This definition is a replacement of FDX rule of the same name
+  # Here it removes the specificity to FDX versions numbered 6 to 9
+  fdx-semantic-versions:
+    description: Require 3-part semantic versions
+    message: Version is not a valid semantic version - {{value}}
+    given: $.info.version
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        # This pattern works for any major version 0 to 999...:
+        match: '^(0|[1-9][0-9]*).(0|[1-9][0-9]*).(0|[1-9][0-9]*)$'
+overrides:
+  - files:
+      # matches test file config/fdxapi.components.yaml
+      - '**/fdxapi.components.yaml'
+    rules:
+      fdx-components-self-reference: error
+      oas3-unused-component: off
+      openapi-tags: off
+  - files:
+      # matches test file config/fdxapi.meta.yaml
+      - '**/fdxapi.meta.yaml#/info/license'
+      # matches new, incorrectly reported oas3-schema error
+      - '**/fdxapi.meta.yaml#/paths/~1availability/get/responses/200/content/application~1json/schema/examples'
+    rules:
+      oas3-schema: off
+  - files:
+      # matches test files config/fdxapi.components.yaml and config/fdxapi.meta.yaml
+      - '**/fdxapi.components.yaml'
+      - '**/fdxapi.meta.yaml#/paths/~1capability'
+    rules:
+      fdx-payloads-of-type-object: off
+  - files:
+      - '**/fdxapi.meta.yaml#/paths/~1availability'
+      - '**/fdxapi.meta.yaml#/paths/~1capability'
+    rules:
+      fdx-paths-min-four-parms: off
+      fdx-paths-min-five-parms: off
+  - files:
+      # matches test file config/fdxapi.meta.yaml
+      - '**/fdxapi.meta.yaml#/components/schemas/AvailabilityStatus' # listed in flow order
+    rules:
+      fdx-enums-alphabetical: off
+  - files:
+      # matches test files config/fdxapi.components.yaml and config/fdxapi.meta.yaml
+      - '**/fdxapi.components.yaml#/components/schemas/ContentTypes'
+      - '**/fdxapi.components.yaml#/components/schemas/FdxVersion'
+      - '**/fdxapi.components.yaml#/components/schemas/ResultType/enum/1'  # turn off second one in testing
+      - '**/fdxapi.meta.yaml#/components/schemas/OperationId'
+    rules:
+      fdx-enums-uppercase: off
+  - files:
+      # matches test file config/fdxapi.components.yaml
+      - '**/fdxapi.components.yaml#/components/schemas/HateoasLink'
+    rules:
+      fdx-entity-alphabetical: off
+  - files:
+      - '**/fdxapi.meta.yaml#/components/schemas/Availability/allOf/1' # is oneOf
+    rules:
+      fdx-allof-type-defined: off

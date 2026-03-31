@@ -1,0 +1,82 @@
+# Install on Mac or Linux:
+#
+#    'brew install yamllint'
+#
+# Install on Windows:
+#
+# Install Python:
+#    https://www.tomshardware.com/how-to/install-python-on-windows-10-and-11
+#
+# 1. Open a browser to the Python website and download the Windows installer: https://www.python.org/
+#    (That should install pip.)
+#
+# 2. Run 'pip help' to confirm pip is installed. If not:
+#    https://phoenixnap.com/kb/install-pip-windows
+#
+# 3. Install yamllint:
+#    https://yamllint.readthedocs.io/en/stable/quickstart.html
+# run:
+#    'pip install --user yamllint'
+#
+
+---
+schema: JSON_SCHEMA
+rules:
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+    min-spaces-inside-empty: -1
+    max-spaces-inside-empty: -1
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 2
+    min-spaces-inside-empty: -1
+    max-spaces-inside-empty: -1
+  colons:
+    max-spaces-after: 1
+    max-spaces-before: 0
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 1
+    max-spaces-after: 1
+  comments:
+    level: warning
+    require-starting-space: true
+    min-spaces-from-content: 1
+  comments-indentation: enable
+  document-end: disable
+  document-start: disable
+  empty-lines:
+    # Suggested:
+    # max: 2
+    # max-start: 0
+    # max-end: 0
+    max: 1
+    max-start: 0
+    max-end: 1
+  quoted-strings: disable
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: true
+  hyphens:
+    max-spaces-after: 1
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  key-duplicates: enable
+  key-ordering: disable
+  line-length:
+    level: warning
+    # Suggested:
+    # max: 120
+    max: 135
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: false
+  new-line-at-end-of-file: enable
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  trailing-spaces: enable
+  truthy:
+    level: error

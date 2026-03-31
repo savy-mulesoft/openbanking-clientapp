@@ -1,0 +1,509 @@
+openapi: 3.1.0
+info:
+  # for testing spectral test ruleset rule fdx-semantic-versions, not valid FDX version
+  version: '1.02.3'
+  title: Ruleset testing file for FDX Meta API
+  description: Ruleset testing file for Financial Data Exchange Meta API
+  contact:
+    name: Financial Data Exchange
+    url: 'https://financialdataexchange.org/'
+    email: fdxsupport@financialdataexchange.org
+  license:
+    name: FDX API License Agreement (11-13-2019)
+    url: 'https://financialdataexchange.org/common/Uploaded%20files/Policies/FDX%20API%20License%20Agreement-(11-13-2019).pdf'
+    # for testing spectral rule fdx-openapi-license-url
+    identifier: FDX_API
+servers:
+  - url: 'https://api.fi.com/fdx/v5'
+    description: Financial Data Exchange Meta API
+security:
+  - basicAuth: []
+tags:
+  - name: Meta
+    description: API management and metrics
+    # for testing spectral rule fdx-tags-title-case
+  - name: MetaPascalCase
+    description: Test Title Case rule
+
+paths:
+
+  ############################################################
+  #
+  # Meta management and metrics paths
+  #
+  ############################################################
+
+  /availability:
+    parameters:
+      - $ref: './fdxapi.components.yaml#/components/parameters/FapiInteractionIdHeader'
+      - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiActorTypeHeader'
+      - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataProviderIdHeader'
+    # for testing spectral rules fdx-csdf-account-categories and fdx-csdf-technical
+    x-fdx-csdf-account-categories: [ANY, REG_E]
+    x-fdx-csdf-technical: false
+    get:
+      # operationId: getAvailability
+      # for testing spectral rules fdx-operation-id-camel-case,
+      # fdx-operation-id-match-enum, fdx-operation-id-match-get
+      operationId: checkAVailability
+      # for testing spectral rules fdx-deprecated-element, fdx-csdf-account-categories and fdx-csdf-technical
+      deprecated: true
+      x-fdx-csdf-account-categories: []
+      x-fdx-csdf-technical: false
+      tags:
+        - Meta
+        # for testing spectral rules operation-singular-tag, fdx-tags-title-case
+        - MetaPascalCase
+      description: Get information about this API's availability
+      summary: Get API availability
+      parameters:
+        - $ref: '#/components/parameters/OperationIdQuery'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvailabilityList'
+      responses:
+        '200':
+          description: Status and planned times of API availability
+          headers:
+            # for testing spectral rule fdx-reqd-response-header
+            not-x-fapi-interaction-id:
+              $ref: './fdxapi.components.yaml#/components/headers/x-fapi-interaction-id'
+          content:
+            application/json:
+              # for testing spectral rule fdx-paths-only-ref-schemas
+              schema:
+                # for testing spectral rule fdx-payloads-of-type-object
+                type: array
+                items:
+                  $ref: '#/components/schemas/Availability'
+                # for testing spectral rule fdx-no-examples-under-schema
+                examples:
+                  Bad Example Location One:
+                    value:
+                      - status: ALIVE
+                        description: Description of availability status
+                        operationId: getAvailability
+      security:
+        - basicAuth: []
+
+  /certification-metrics:
+    parameters:
+      - $ref: './fdxapi.components.yaml#/components/parameters/FapiInteractionIdHeader'
+      - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiActorTypeHeader'
+      # for testing spectral rule fdx-paths-min-three-parms
+      # - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataProviderIdHeader'
+    get:
+      # for testing spectral rules fdx-operation-id-match-enum, fdx-operation-id-match-get
+      operationId: getcertificationMetrics
+      tags:
+        - Meta
+      description: Get certification performance metrics for this implementer's APIs
+      summary: Get certification performance metrics
+      parameters:
+        - $ref: '#/components/parameters/OperationIdQuery'
+      # for testing spectral rule fdx-paths-only-ref-schemas
+      requestBody:
+        content:
+          application/json:
+            schema:
+              # for testing spectral rule fdx-payloads-of-type-object
+              type: string
+              # for testing spectral rule fdx-no-examples-under-schema
+              example: 'bad example location two'
+      responses:
+        '200':
+          description: Array of API's certification metrics
+          # No headers:, for testing spectral rule fdx-response-headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificationMetrics'
+      security:
+        - basicAuth: []
+
+  # Modified for spectral ruleset testing, path not in alpha order
+  # for testing spectral rule fdx-paths-alphabetical
+  /capability:
+    parameters:
+      - $ref: './fdxapi.components.yaml#/components/parameters/FapiInteractionIdHeader'
+      - $ref: '#/components/parameters/fdxVersionQuery'
+      - $ref: './fdxapi.components.yaml#/components/parameters/FdxApiDataProviderIdHeader'
+    # for testing spectral rule fdx-http-methods
+    trace:
+      operationId: getCapability
+      # for testing OpenAPI spectral rule operation-tags
+      # tags:
+      #   - Meta
+      description: Get information about this API's capability
+      summary: Get API capability
+      parameters:
+        - $ref: '#/components/parameters/OperationIdQuery'
+        # for testing spectral rule fdx-paths-required-parms
+        - $ref: '#/components/parameters/fdxVersionQuery'
+        - $ref: './fdxapi.components.yaml#/components/parameters/ResultTypeQuery'
+      # for testing spectral rule fdx-paths-only-ref-schemas
+      requestBody:
+        content:
+          application/json:
+            schema:
+              # for testing spectral rule fdx-paths-only-ref-schemas
+              type: array
+              items:
+                $ref: '#/components/schemas/Availability'
+      responses:
+        '200':
+          description: >-
+            API's capability for connections, cutoff times
+            and product types
+          headers:
+            x-fapi-interaction-id:
+              $ref: './fdxapi.components.yaml#/components/headers/x-fapi-interaction-id'
+            # No content, for testing spectral rule fdx-response-missing-content
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capability'
+
+components:
+
+  securitySchemes:
+    # for testing spectral rule fdx-securitySchemes-pascal-case
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Base64(client_id:client_secret)
+
+  parameters:
+
+    ############################################################
+    #
+    # Meta management and metrics request parameters
+    #
+    ############################################################
+
+    OperationIdQuery:
+      name: operationId
+      in: query
+      description: Specific operationId for which to get the metrics. Optional
+      required: false
+      schema:
+        $ref: '#/components/schemas/OperationId'
+
+    # for testing spectral rules fdx-parameters-pascal-case, fdx-parameters-alphabetical
+    fdxVersionQuery:
+      name: fdxVersion
+      in: query
+      description: Specific FDX version for which to get the capability. Optional
+      required: false
+      schema:
+        $ref: './fdxapi.components.yaml#/components/schemas/FdxVersion'
+      # for testing spectral rules fdx-deprecated-parameter, fdx-csdf-account-categories and fdx-csdf-technical
+      deprecated: true
+      x-fdx-csdf-account-categories: [BAD]
+      x-fdx-csdf-technical: false
+
+  schemas:
+    ############################################################
+    #
+    # Meta management and metrics data entities
+    #
+    ############################################################
+
+    Availability:
+      title: Availability entity
+      description: Response object for /availability API
+      # Used to (incorrectly) fail spectral rule fdx-property-type-defined
+      # (before we redefined the rule using custom function fdx_xor).
+      # Apparently spectral's evaluation (during resolution?) of below allOf: (with no type defined)
+      # overrode Availability's 'type: object' definition (since both oneOf's have a type) [TODO]
+      type: object
+      # for testing (currently commented out) spectral rule fdx-no-request-undefined-props
+      unevaluatedProperties: true
+      allOf:
+        - description: Original properties in allOf parallel to oneOf for rule
+          # No type:, for testing spectral rule fdx-allof-type-defined
+          properties:
+            status:
+              $ref: '#/components/schemas/AvailabilityStatus'
+              description: Status of API availability
+            description:
+              type: string
+              description: Description of availability status
+        - oneOf:
+            - $ref: '#/components/schemas/Capability'
+            # for testing spectral rule fdx-oneof-defined-inline
+            - type: object
+              description: An inline defined oneOf to fail rule
+              properties:
+                operationId:
+                  description: Operation ID (e.g. name) for this Availability
+                  $ref: '#/components/schemas/OperationId'
+                plannedAvailability:
+                  type: array
+                  description: Provider's plan for API availability
+                  items:
+                    $ref: '#/components/schemas/PlannedAvailability'
+
+    AvailabilityList:
+      title: Availability List entity
+      description: Response object for /availability API
+      type: object
+      # for testing (currently commented out) spectral rule fdx-no-request-undefined-props
+      unevaluatedProperties: false
+      properties:
+        availability:
+          description: Zero or more API availability metrics
+          type: array
+          items:
+            $ref: '#/components/schemas/Availability'
+
+    Capability:
+      title: Capability entity
+      description: The response object for the API /capability request
+      type: object
+      properties:
+        fdxVersions:
+          type: array
+          description: The FDX schema versions supported by one or more operations
+          items:
+            $ref: './fdxapi.components.yaml#/components/schemas/FdxVersion'
+        allowedConnections:
+          type: integer
+          description: The number of concurrent connections allowed for this client
+        activeConnections:
+          type: integer
+          description: The current number of active connections for this client
+        messageFormat:
+          $ref: '#/components/schemas/messageFormat'
+          description: Defaults to JSON
+        operations:
+          type: array
+          description: The FDX API endpoints supported
+          items:
+            $ref: '#/components/schemas/Operation'
+        jwksUrl:
+          description: >-
+            The URL to retrieve the JWKS public keys from the data provider,
+            needed to enable payload level encryption above the TLS layer
+          $ref: './fdxapi.components.yaml#/components/schemas/HateoasLink'
+
+    Operation:
+      title: Operation entity
+      description: Definition of a supported API for the /capability response object
+      type: object
+      properties:
+        # Used to test spectral rule fdx-property-type-defined, with no type
+        noType:
+          description: No type defined for this property
+        # Used to test spectral rule fdx-property-type-defined, with two types
+        twoTypes:
+          description: Two types defined for this property
+          type: string
+          $ref: '#/components/schemas/OperationId'
+        id:
+          description: Operation ID (e.g. name) of this API
+          $ref: '#/components/schemas/OperationId'
+        availability:
+          description: Whether and how this API is currently supported
+          $ref: '#/components/schemas/Availability'
+        alsoSupported:
+          description: >-
+            Additional FDX API endpoints supported at this API, e.g. Transactions
+            within Accounts, or TxImages within Transactions
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationId'
+        version:
+          description: >-
+            Data provider's implementation version number for this operation,
+            which is unrelated to the FDX API version
+          type: string
+        fdxVersions:
+          description: FDX schema versions supported at this endpoint
+          type: array
+          items:
+            $ref: './fdxapi.components.yaml#/components/schemas/FdxVersion'
+        cutOffTime:
+          description: >-
+            Cut off time for same-day execution of activity request submitted to this API.
+            Alternatively, the as-of time when EOD account balances are typically set
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+        link:
+          description: >-
+            General HATEOAS link for this API, specifying supported action (GET, POST, etc) and
+            contentTypes (application/json, image/png, etc), but without any path parameter values
+          $ref: './fdxapi.components.yaml#/components/schemas/HateoasLink'
+
+    # for testing spectral rule fdx-entity-alphabetical
+    PlannedAvailability:
+      title: Planned Availability entity
+      description: Provider's plan for API availability
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/AvailabilityStatus'
+          description: API availability status for this time period
+        description:
+          type: string
+          description: Description of API availability status
+        startTime:
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+          description: Start time for this status period
+        endTime:
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+          description: End time for this status period
+
+    CertificationMetric:
+      title: Certification Metric entity
+      description: A single certification performance metric
+      type: object
+      properties:
+        reportStartTimestamp:
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+          description: When the reported metrics period began
+        reportEndTimestamp:
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+          description: When the reported metrics period ended
+        metricsName:
+          type: string
+          description: >-
+            Any provider descriptive name for the measurement.
+            Optional, can be omitted if operationIds are returned
+        operationIds:
+          description: >-
+            One or more Operation IDs for which these metrics apply.
+            Optional, can be omitted if metricsName is returned
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationId'
+        responseTimeAverage:
+          type: number
+          description: The self-reported average response time in milliseconds for all combined data responses
+        averageUpTime:
+          type: number
+          description: >-
+            See the Certification Performance section that describes how this measurement
+            will be calculated, defines the % of availability during the measurement
+        reportTimestamp:
+          $ref: './fdxapi.components.yaml#/components/schemas/Timestamp'
+          description: Time when these performance and availability metrics were created
+
+    CertificationMetrics:
+      title: Certification Metrics entity
+      description: Response object for /certification-metrics API
+      type: object
+      properties:
+        metrics:
+          description: Zero or more certification performance metrics
+          type: array
+          items:
+            $ref: '#/components/schemas/CertificationMetric'
+        # for testing spectral rule fdx-properties-camel-case
+        InlineEnum:
+          # No description:, for testing spectral rule fdx-property-description
+          type: string
+          # for testing spectral rules fdx-enums-defined-inline, fdx-enums-uppercase
+          enum:
+            - Bad-Enum
+
+    ############################################################
+    #
+    # Meta management and metrics data types
+    #
+    ############################################################
+
+    AvailabilityStatus:
+      title: Availability Status
+      description: Statuses for reporting API availability
+      type: string
+      enum:
+        - ALIVE
+        - PARTIAL
+        - MAINTENANCE
+        - DOWN
+
+    # for testing spectral rule fdx-schemas-pascal-case
+    messageFormat:
+      # No title:, for testing spectral rule fdx-entity-title
+      # title: Message Format
+      # for testing spectral rule fdx-description-has-html
+      description: Message format used in /capability API <
+      type: string
+      enum:
+        - JSON
+
+    OperationId:
+      title: FDX Resource Operation ID
+      # for testing spectral rule fdx-entity-description
+      # description: The operationIds for all FDX APIs
+      type: string
+      enum:
+        - cancelPayment
+        - cancelRecurringPayment
+        - cancelTransfer
+        - createNotificationSubscription
+        - createPayee
+        - createPaymentInitiationParty
+        - createPaymentMethod
+        - createRecipient
+        - createTaxForm
+        - deleteNotificationSubscription
+        - deletePayee
+        - deletePaymentInitiationParty
+        - deletePaymentMethodRegistration
+        - deleteRecipient
+        - getAccount
+        - getAccountContact
+        - getAccountPaymentNetworks
+        - getAccountStatement
+        - getAccountTransactionImages
+        - getAvailability
+        - getCapability
+        - getCertificationMetrics
+        - getConsentGrant
+        - getConsentRevocation
+        - getCustomer
+        - getCustomerInfo
+        - getCustomers
+        - getNotificationSubscription
+        - getPayee
+        - getPayment
+        - getPaymentInitiationParty
+        - getPaymentMethodRegistration
+        - getPaymentsForRecurringPayment
+        - getRecipient
+        - getRecipients
+        - getRecurringPayment
+        - getRegistryRecipient
+        - getRegistryRecipients
+        - getRewardProgram
+        - getRewardProgramCategories
+        - getTaxForm
+        - getTransfer
+        - getTransferStatus
+        - listPaymentInitiationParties
+        - publishNotification
+        - reportSuspectedFraudIncident
+        - requestAccountTransfer
+        - revokeConsentGrant
+        - schedulePayment
+        - scheduleRecurringPayment
+        - searchForAccountRewardTransactions
+        - searchForAccountStatements
+        # for testing spectral rule fdx-enums-alphabetical
+        - searchForAccountTransactions
+        - searchForAccounts
+        - searchForPayees
+        - searchForPayments
+        - searchForRecurringPayments
+        - searchForTaxForms
+        - searchForTransfers
+        - searchRewardPrograms
+        - updatePayee
+        - updatePayment
+        - updatePaymentInitiationParty
+        - updatePaymentMethodRegistration
+        - updateRecipient
+        - updateRecurringPayment
+        - updateTaxForm
