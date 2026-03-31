@@ -575,6 +575,15 @@
             }
         }
 
+        .card--cash-tappable {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .card--cash-tappable .card-refresh-btn {
+            cursor: pointer;
+        }
+
         .btn-primary {
             width: 100%;
             min-height: var(--tap-size);
@@ -1243,10 +1252,10 @@
                     <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship—all in one place.</p>
 
                     <div class="cards">
-                        <div class="card" id="cashCard">
+                        <div class="card card--cash-tappable" id="cashCard">
                             <div class="card-cash-head">
                                 <div class="card-label">Cash</div>
-                                <button type="button" class="card-refresh-btn" id="cashRefreshBtn" aria-label="View cash breakdown and refresh balances">
+                                <button type="button" class="card-refresh-btn" id="cashRefreshBtn" aria-label="Refresh balances">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                                         <path d="M3 3v5h5"/>

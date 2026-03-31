@@ -294,7 +294,6 @@
         m.classList.add('is-open');
         m.setAttribute('aria-hidden', 'false');
         syncModalOpenBodyClass();
-        loadAccountData();
     }
 
     function closeCashBreakdownModal() {
@@ -774,11 +773,19 @@
             });
         }
 
+        var cashCard = document.getElementById('cashCard');
+        if (cashCard) {
+            cashCard.addEventListener('click', function (e) {
+                if (e.target.closest('.card-refresh-btn')) return;
+                openCashBreakdownModal();
+            });
+        }
+
         var cashRefresh = document.getElementById('cashRefreshBtn');
         if (cashRefresh) {
             cashRefresh.addEventListener('click', function (e) {
                 e.stopPropagation();
-                openCashBreakdownModal();
+                loadAccountData();
             });
         }
 
