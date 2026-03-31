@@ -120,11 +120,13 @@
     }
 
     function bankBrandKey(bankName) {
-        var n = (bankName || '').toUpperCase();
-        if (n.indexOf('RBC') !== -1 || n.indexOf('ROYAL') !== -1) return 'rbc';
-        if (n.indexOf('TD') !== -1) return 'td';
-        if (n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'scotia';
-        if (n.indexOf('CIBC') !== -1 || n.indexOf('CIB') !== -1) return 'cibc';
+        var n = String(bankName || '')
+            .trim()
+            .toUpperCase();
+        if (n === 'RBC' || n.indexOf('ROYAL') !== -1) return 'rbc';
+        if (n === 'TD' || n.indexOf('TD') !== -1) return 'td';
+        if (n === 'SCO' || n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'scotia';
+        if (n === 'CIBC' || n.indexOf('CIBC') !== -1 || n.indexOf('CIB') === 0) return 'cibc';
         return 'default';
     }
 
