@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!--
+        TD Resource Server Proxy
+        =========================
+        The BMO client app acts as a confidential client: the browser never talks to the TD resource
+        server directly. Instead, the browser calls BMO at /api/td/*, and BMO retrieves the stored
+        access_token from the Object Store and forwards it as Authorization: Bearer to the TD app
+        running on localhost:8082.
+    -->
+
+    <!-- Shared sub-flow: retrieve access_token from Object Store and set it as a variable -->
+    <sub-flow name="load-td-access-token-subflow" doc:id="load-td-access-token">
+        <try doc:name="Load token from OS" doc:id="load-token-os">
+            <os:retrieve doc:name="Retrieve OAuth session" doc:id="proxy-retrieve-session"
+                         objectStore="oauth_object_store" key="ob_oauth_session" target="oauthSession" />
+            <set-variable value="#[vars.oauthSession.access_token]" variableName="tdAccessToken"
+                          doc:name="Extract access_token" doc:id="extract-td-token" />
+            <error-handler>
+                <on-error-continue enableNotifications="false" logException="false"
+                                   doc:name="No session" doc:id="proxy-no-session" type="ANY">
+                    <set-variable value="" variableName="tdAccessToken" doc:name="Clear token var" />
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+
+    <!--
+        GET /api/td/accounts  →  forward to TD resource server
+        Requires a valid OAuth session in Object Store.
+    -->
+    <flow name="td-proxy-accounts-flow" doc:id="td-proxy-accounts-flow">
+        <http:listener doc:name="GET /api/td/accounts" doc:id="proxy-accounts-listener"
+                       config-ref="HTTP_Listener_config"
+                       path="/api/td/accounts"
+                       allowedMethods="GET">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.responseHeaders default {"Content-Type": "application/json"}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 502]">
+                <http:headers><![CDATA[#[{"Content-Type": "application/json"}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+
+        <flow-ref doc:name="Load TD access token" name="load-td-access-token-subflow" />
+
+        <choice doc:name="Token available?" doc:id="check-td-token-accounts">
+            <when expression="#[isEmpty(vars.tdAccessToken)]">
+                <set-variable value="401" variableName="httpStatus" doc:name="Set 401" />
+                <ee:transform doc:name="No token response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    code: "401",
+    message: "No active external bank connection. Please connect your TD account first."
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Proxying to TD accounts"
+                        message='#["Proxying GET /api/td/accounts to TD resource server with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                        category="TD.Proxy" />
+
+                <try doc:name="Forward to TD" doc:id="forward-td-accounts">
+                    <http:request method="GET" doc:name="Call TD /api/td/accounts"
+                                  config-ref="HTTP_Request_configuration"
+                                  url="http://localhost:8082/api/td/accounts">
+                        <http:headers><![CDATA[#[{
+                            "Authorization": "Bearer " ++ vars.tdAccessToken,
+                            "Accept": "application/json",
+                            "x-fapi-interaction-id": uuid()
+                        }]]]></http:headers>
+                    </http:request>
+
+                    <set-variable value="#[attributes.statusCode]" variableName="httpStatus" doc:name="Mirror status code" />
+                    <set-variable value="#[attributes.headers]" variableName="responseHeaders" doc:name="Mirror headers" />
+
+                    <error-handler>
+                        <on-error-continue enableNotifications="true" logException="true"
+                                           doc:name="TD unreachable" doc:id="td-accounts-unreachable" type="ANY">
+                            <set-variable value="502" variableName="httpStatus" doc:name="Set 502" />
+                            <ee:transform doc:name="Gateway error">
+                                <ee:message>
+                                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    code: "502",
+    message: "TD Bank resource server is unreachable. Ensure ob_td_app is running on port 8082."
+}]]></ee:set-payload>
+                                </ee:message>
+                            </ee:transform>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <!--
+        GET /api/td/transactions  →  forward to TD resource server
+        Requires a valid OAuth session in Object Store.
+    -->
+    <flow name="td-proxy-transactions-flow" doc:id="td-proxy-transactions-flow">
+        <http:listener doc:name="GET /api/td/transactions" doc:id="proxy-txn-listener"
+                       config-ref="HTTP_Listener_config"
+                       path="/api/td/transactions"
+                       allowedMethods="GET">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.responseHeaders default {"Content-Type": "application/json"}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 502]">
+                <http:headers><![CDATA[#[{"Content-Type": "application/json"}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+
+        <flow-ref doc:name="Load TD access token" name="load-td-access-token-subflow" />
+
+        <choice doc:name="Token available?" doc:id="check-td-token-txn">
+            <when expression="#[isEmpty(vars.tdAccessToken)]">
+                <set-variable value="401" variableName="httpStatus" doc:name="Set 401" />
+                <ee:transform doc:name="No token response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    code: "401",
+    message: "No active external bank connection. Please connect your TD account first."
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Proxying to TD transactions"
+                        message='#["Proxying GET /api/td/transactions to TD resource server with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                        category="TD.Proxy" />
+
+                <try doc:name="Forward to TD" doc:id="forward-td-txn">
+                    <http:request method="GET" doc:name="Call TD /api/td/transactions"
+                                  config-ref="HTTP_Request_configuration"
+                                  url="http://localhost:8082/api/td/transactions">
+                        <http:headers><![CDATA[#[{
+                            "Authorization": "Bearer " ++ vars.tdAccessToken,
+                            "Accept": "application/json",
+                            "x-fapi-interaction-id": uuid()
+                        }]]]></http:headers>
+                    </http:request>
+
+                    <set-variable value="#[attributes.statusCode]" variableName="httpStatus" doc:name="Mirror status code" />
+                    <set-variable value="#[attributes.headers]" variableName="responseHeaders" doc:name="Mirror headers" />
+
+                    <error-handler>
+                        <on-error-continue enableNotifications="true" logException="true"
+                                           doc:name="TD unreachable" doc:id="td-txn-unreachable" type="ANY">
+                            <set-variable value="502" variableName="httpStatus" doc:name="Set 502" />
+                            <ee:transform doc:name="Gateway error">
+                                <ee:message>
+                                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    code: "502",
+    message: "TD Bank resource server is unreachable. Ensure ob_td_app is running on port 8082."
+}]]></ee:set-payload>
+                                </ee:message>
+                            </ee:transform>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>
