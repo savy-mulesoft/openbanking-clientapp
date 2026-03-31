@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" 
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Clear Cache Flow - Fresh Start -->
+	<flow name="clear-cache-flow" doc:id="clear-cache-flow">
+		<http:listener doc:name="Clear Cache Listener" doc:id="clear-cache-listener" 
+			config-ref="HTTP_Listener_config" path="/api/clear-cache" allowedMethods="POST"/>
+		
+		<logger level="INFO" doc:name="Log Cache Clear Request" doc:id="log-cache-clear" 
+			message="Clearing all cached tokens and user data for fresh start"/>
+		
+		<try doc:name="Try Clear Cache" doc:id="try-clear-cache">
+			<!-- Clear all cached tokens and user data from variables -->
+			<set-variable value="#[{}]" doc:name="Clear User Tokens" doc:id="clear-user-tokens" variableName="userTokenCache"/>
+			<set-variable value="#[{}]" doc:name="Clear User Data" doc:id="clear-user-data" variableName="userDataCache"/>
+			<set-variable value="#[{}]" doc:name="Clear User Scopes" doc:id="clear-user-scopes" variableName="userScopesCache"/>
+			
+			<ee:transform doc:name="Success Response" doc:id="success-clear-response">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "success",
+	"message": "Cache cleared successfully. Fresh start enabled.",
+	"timestamp": now()
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			
+			<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="clear-cache-error">
+					<ee:transform doc:name="Error Response" doc:id="error-clear-response">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "Failed to clear cache: " ++ (error.description default "Unknown error"),
+	"timestamp": now()
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<set-variable value="500" doc:name="Set Error Status" doc:id="set-error-status" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+
+	<!-- Delete Specific Account Flow -->
+	<flow name="delete-account-flow" doc:id="delete-account-flow">
+		<http:listener doc:name="Delete Account Listener" doc:id="delete-account-listener" 
+			config-ref="HTTP_Listener_config" path="/api/delete-account" allowedMethods="DELETE"/>
+		
+		<logger level="INFO" doc:name="Log Delete Request" doc:id="log-delete-request" 
+			message="Received delete account request for user: #[attributes.queryParams.userId default 'unknown']"/>
+		
+		<choice doc:name="Validate User ID" doc:id="validate-user-id">
+			<when expression="#[isEmpty(attributes.queryParams.userId)]">
+				<ee:transform doc:name="Missing User ID Response" doc:id="missing-user-response">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "User ID is required",
+	"timestamp": now()
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="Set Bad Request Status" doc:id="set-bad-request" variableName="httpStatus"/>
+			</when>
+			<otherwise>
+				<set-variable value="#[attributes.queryParams.userId]" doc:name="Set User ID" doc:id="set-user-id" variableName="userId"/>
+				
+				<try doc:name="Try Delete User Data" doc:id="try-delete-user">
+					<!-- Remove user from caches -->
+					<ee:transform doc:name="Remove User From Caches" doc:id="remove-user-from-caches">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var updatedTokenCache = (vars.userTokenCache default {}) - vars.userId
+var updatedDataCache = (vars.userDataCache default {}) - vars.userId
+var updatedScopesCache = (vars.userScopesCache default {}) - vars.userId
+---
+{
+	"status": "success",
+	"message": "Account data deleted successfully. User will need to reconnect.",
+	"userId": vars.userId,
+	"timestamp": now()
+}]]></ee:set-payload>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="userTokenCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userTokenCache default {}) - vars.userId]]></ee:set-variable>
+							<ee:set-variable variableName="userDataCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userDataCache default {}) - vars.userId]]></ee:set-variable>
+							<ee:set-variable variableName="userScopesCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userScopesCache default {}) - vars.userId]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					
+					<logger level="INFO" doc:name="Log Successful Deletion" doc:id="log-successful-deletion" 
+						message="Successfully deleted all data for user: #[vars.userId]"/>
+					
+					<error-handler>
+						<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="delete-error-propagate">
+							<ee:transform doc:name="Error Delete Response" doc:id="error-delete-response">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "Failed to delete account data: " ++ (error.description default "Unknown error"),
+	"userId": vars.userId,
+	"timestamp": now()
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<set-variable value="500" doc:name="Set Server Error Status" doc:id="set-server-error" variableName="httpStatus"/>
+						</on-error-propagate>
+					</error-handler>
+				</try>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- Store Token with Scopes Flow -->
+	<flow name="store-token-with-scopes-flow" doc:id="store-token-flow">
+		<http:listener doc:name="Store Token Listener" doc:id="store-token-listener" 
+			config-ref="HTTP_Listener_config" path="/api/store-token" allowedMethods="POST"/>
+		
+		<logger level="INFO" doc:name="Log Store Token Request" doc:id="log-store-token" 
+			message="Storing token and user data with requested scopes"/>
+		
+		<choice doc:name="Validate Request Data" doc:id="validate-token-data">
+			<when expression="#[isEmpty(payload.userId) or isEmpty(payload.accessToken)]">
+				<ee:transform doc:name="Missing Data Response" doc:id="missing-data-response">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "User ID and access token are required",
+	"timestamp": now()
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="Set Bad Request" doc:id="set-bad-request-token" variableName="httpStatus"/>
+			</when>
+			<otherwise>
+				<set-variable value="#[payload.userId]" doc:name="Set User ID" doc:id="set-user-id-token" variableName="userId"/>
+				<set-variable value="#[payload.requestedScopes default []]" doc:name="Set Requested Scopes" doc:id="set-scopes" variableName="requestedScopes"/>
+				
+				<try doc:name="Try Store Data" doc:id="try-store-data">
+					<!-- Store in memory caches -->
+					<ee:transform doc:name="Store User Data" doc:id="store-user-data">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "success",
+	"message": "Token and user data stored successfully with requested scopes",
+	"userId": vars.userId,
+	"requestedScopes": vars.requestedScopes,
+	"timestamp": now()
+}]]></ee:set-payload>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="userTokenCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userTokenCache default {}) ++ {
+	(vars.userId): {
+		"accessToken": payload.accessToken,
+		"refreshToken": payload.refreshToken default null,
+		"expiresAt": payload.expiresAt default null,
+		"tokenType": payload.tokenType default "Bearer",
+		"storedAt": now()
+	}
+}]]></ee:set-variable>
+							<ee:set-variable variableName="userDataCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userDataCache default {}) ++ {
+	(vars.userId): {
+		"userId": vars.userId,
+		"bankName": payload.bankName default "BMO",
+		"accountInfo": payload.accountInfo default {},
+		"connectedAt": now(),
+		"lastAccess": now()
+	}
+}]]></ee:set-variable>
+							<ee:set-variable variableName="userScopesCache"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.userScopesCache default {}) ++ {
+	(vars.userId): {
+		"requestedScopes": vars.requestedScopes,
+		"grantedScopes": payload.grantedScopes default vars.requestedScopes,
+		"scopeUpdatedAt": now()
+	}
+}]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					
+					<logger level="INFO" doc:name="Log Successful Storage" doc:id="log-successful-storage" 
+						message="Successfully stored token and data for user: #[vars.userId] with scopes: #[vars.requestedScopes joinBy ', ']"/>
+					
+					<error-handler>
+						<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="store-error">
+							<ee:transform doc:name="Error Store Response" doc:id="error-store-response">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "Failed to store token and data: " ++ (error.description default "Unknown error"),
+	"timestamp": now()
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<set-variable value="500" doc:name="Set Error Status" doc:id="set-store-error-status" variableName="httpStatus"/>
+						</on-error-propagate>
+					</error-handler>
+				</try>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- Get Stored User Data Flow -->
+	<flow name="get-user-data-flow" doc:id="get-user-data-flow">
+		<http:listener doc:name="Get User Data Listener" doc:id="get-user-data-listener" 
+			config-ref="HTTP_Listener_config" path="/api/user-data" allowedMethods="GET"/>
+		
+		<choice doc:name="Validate User ID Parameter" doc:id="validate-get-user-id">
+			<when expression="#[isEmpty(attributes.queryParams.userId)]">
+				<ee:transform doc:name="Missing User ID" doc:id="missing-user-id-get">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "User ID parameter is required",
+	"timestamp": now()
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="Set Bad Request" doc:id="set-bad-request-get" variableName="httpStatus"/>
+			</when>
+			<otherwise>
+				<set-variable value="#[attributes.queryParams.userId]" doc:name="Set User ID" doc:id="set-user-id-get" variableName="userId"/>
+				
+				<try doc:name="Try Retrieve User Data" doc:id="try-retrieve-data">
+					<ee:transform doc:name="Get User Data Response" doc:id="get-user-data-response">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var userToken = (vars.userTokenCache default {})[vars.userId]
+var userData = (vars.userDataCache default {})[vars.userId]
+var userScopes = (vars.userScopesCache default {})[vars.userId]
+---
+if (userToken != null)
+{
+	"status": "success",
+	"userId": vars.userId,
+	"tokenInfo": {
+		"hasValidToken": userToken.accessToken != null,
+		"tokenType": userToken.tokenType default "Bearer",
+		"expiresAt": userToken.expiresAt,
+		"storedAt": userToken.storedAt
+	},
+	"userData": userData,
+	"scopes": userScopes,
+	"timestamp": now()
+}
+else
+{
+	"status": "not_found",
+	"message": "No cached data found for this user. Please connect your bank account.",
+	"userId": vars.userId,
+	"timestamp": now()
+}]]></ee:set-payload>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+var userToken = (vars.userTokenCache default {})[vars.userId]
+---
+if (userToken != null) 200 else 404]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					
+					<error-handler>
+						<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="get-data-error">
+							<ee:transform doc:name="Error Get Response" doc:id="error-get-response">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "Failed to retrieve user data: " ++ (error.description default "Unknown error"),
+	"timestamp": now()
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<set-variable value="500" doc:name="Set Server Error" doc:id="set-server-error-get" variableName="httpStatus"/>
+						</on-error-propagate>
+					</error-handler>
+				</try>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- List All Connected Users Flow -->
+	<flow name="list-connected-users-flow" doc:id="list-connected-users-flow">
+		<http:listener doc:name="List Connected Users Listener" doc:id="list-connected-users-listener" 
+			config-ref="HTTP_Listener_config" path="/api/connected-users" allowedMethods="GET"/>
+		
+		<logger level="INFO" doc:name="Log List Users Request" doc:id="log-list-users-request" 
+			message="Retrieving list of all connected users"/>
+		
+		<try doc:name="Try List Users" doc:id="try-list-users">
+			<ee:transform doc:name="Process Connected Users" doc:id="process-connected-users">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var userDataCache = vars.userDataCache default {}
+var userScopesCache = vars.userScopesCache default {}
+var users = keysOf(userDataCache) map {
+	userId: $,
+	hasScopes: userScopesCache[$] != null,
+	connectedAt: userDataCache[$].connectedAt,
+	bankName: userDataCache[$].bankName
+}
+---
+{
+	"status": "success",
+	"message": "Retrieved connected users successfully",
+	"connectedUsers": users,
+	"totalCount": sizeOf(users),
+	"timestamp": now()
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			
+			<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="list-users-error">
+					<ee:transform doc:name="Error List Response" doc:id="error-list-response">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": "error",
+	"message": "Failed to retrieve connected users: " ++ (error.description default "Unknown error"),
+	"timestamp": now()
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<set-variable value="500" doc:name="Set Server Error" doc:id="set-server-error-list" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+
+</mule>

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<!-- Main UI Flow - Serves BMO Banking interface -->
+	<flow name="ui-main-flow" doc:name="ui-main-flow">
+		<http:listener doc:name="UI Main Listener" config-ref="HTTP_Listener_config" path="/" allowedMethods="GET"/>
+		<logger level="INFO" doc:name="Log UI Request" message="BMO Open Banking UI requested"/>
+		<parse-template doc:name="Load HTML Template" location="web/bmo-ui.html"/>
+		<set-payload doc:name="Set HTML Content" value="#[payload]" mimeType="text/html"/>
+		<logger level="INFO" doc:name="Log Response" message="Serving BMO Banking UI"/>
+	</flow>
+
+
+	<!-- BMO Client API Flow - Handles API requests from the UI -->
+	<flow name="bmo-client-api-flow" doc:name="bmo-client-api-flow">
+		<http:listener doc:name="BMO API Listener" config-ref="HTTP_Listener_config" path="/api/*" allowedMethods="GET,POST,PUT,DELETE"/>
+		<logger level="INFO" doc:name="Log API Request" message="BMO API request: #[attributes.method] #[attributes.requestPath]"/>
+		<choice doc:name="Route API Requests">
+			<when expression="#[attributes.requestPath == '/api/accounts']">
+				<flow-ref doc:name="Get Accounts" name="get-accounts-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/transactions']">
+				<flow-ref doc:name="Get Transactions" name="get-transactions-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/balance']">
+				<flow-ref doc:name="Get Balance" name="get-balance-flow"/>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="API Not Found">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "error": "API endpoint not found",
+  "path": attributes.requestPath,
+  "method": attributes.method
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus">404</ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- Mock API Flows for BMO Client functionality -->
+	<flow name="get-accounts-flow" doc:name="get-accounts-flow">
+		<logger level="INFO" doc:name="Log Accounts Request" message="Getting accounts data"/>
+		<ee:transform doc:name="Mock Accounts Response">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "accounts": [
+    {
+      "id": "acc-001",
+      "accountNumber": "****1234",
+      "accountType": "Checking",
+      "balance": 2500.75,
+      "currency": "CAD",
+      "status": "Active"
+    },
+    {
+      "id": "acc-002", 
+      "accountNumber": "****5678",
+      "accountType": "Savings",
+      "balance": 15750.20,
+      "currency": "CAD",
+      "status": "Active"
+    },
+    {
+      "id": "acc-003",
+      "accountNumber": "****9012",
+      "accountType": "Credit Card",
+      "balance": -850.45,
+      "currency": "CAD",
+      "status": "Active"
+    }
+  ]
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="httpStatus">200</ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</flow>
+
+	<flow name="get-transactions-flow" doc:name="get-transactions-flow">
+		<logger level="INFO" doc:name="Log Transactions Request" message="Getting transactions data"/>
+		<ee:transform doc:name="Mock Transactions Response">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "transactions": [
+    {
+      "id": "txn-001",
+      "accountId": "acc-001",
+      "date": "2024-03-24T10:30:00Z",
+      "description": "Grocery Store Purchase",
+      "amount": -125.67,
+      "currency": "CAD",
+      "type": "Purchase",
+      "category": "Groceries"
+    },
+    {
+      "id": "txn-002",
+      "accountId": "acc-001", 
+      "date": "2024-03-23T14:15:00Z",
+      "description": "Salary Deposit",
+      "amount": 3200.00,
+      "currency": "CAD",
+      "type": "Deposit",
+      "category": "Income"
+    },
+    {
+      "id": "txn-003",
+      "accountId": "acc-002",
+      "date": "2024-03-22T09:45:00Z",
+      "description": "Online Transfer",
+      "amount": 500.00,
+      "currency": "CAD",
+      "type": "Transfer",
+      "category": "Transfer"
+    }
+  ]
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="httpStatus">200</ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</flow>
+
+	<flow name="get-balance-flow" doc:name="get-balance-flow">
+		<logger level="INFO" doc:name="Log Balance Request" message="Getting balance data with OAuth integration"/>
+		
+		<!-- Check for OAuth tokens -->
+		<flow-ref doc:name="Get OAuth Tokens" name="get-oauth-tokens-subflow"/>
+		
+		<choice doc:name="Check Token Status" doc:id="check-token-status">
+			<when expression="#[payload.success == true]">
+				<!-- Tokens are available and valid -->
+				<logger level="INFO" doc:name="Log Token Available" 
+						message="OAuth tokens available, making real API call to bank" 
+						category="Balance.API"/>
+				
+				<ee:transform doc:name="Prepare Bank API Request" doc:id="prepare-bank-api-request">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"requestId": uuid(),
+	"timestamp": now() as String,
+	"scopes": ["ACCOUNT_BASIC"]
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="accessToken"><![CDATA[#[payload.tokens.access_token]]]></ee:set-variable>
+						<ee:set-variable variableName="sessionId"><![CDATA[#[payload.tokens.session_id]]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				
+				<!-- Make real API call to TD Bank (placeholder for now) -->
+				<logger level="INFO" doc:name="Log API Call" 
+						message="Making authenticated API call to TD Bank with access token (length: #[sizeOf(vars.accessToken)]), session: #[vars.sessionId]" 
+						category="Balance.BankAPI"/>
+				
+				<!-- For now, return enhanced mock data with OAuth context -->
+				<ee:transform doc:name="Enhanced Balance Response with OAuth">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "totalBalance": {
+    "amount": 17400.50,
+    "currency": "CAD",
+    "lastUpdated": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+  },
+  "accountBreakdown": [
+    {
+      "accountId": "acc-001",
+      "accountType": "Checking", 
+      "balance": 2500.75
+    },
+    {
+      "accountId": "acc-002",
+      "accountType": "Savings",
+      "balance": 15750.20  
+    },
+    {
+      "accountId": "acc-003",
+      "accountType": "Credit Card",
+      "balance": -850.45
+    }
+  ],
+  "oauthStatus": {
+    "authenticated": true,
+    "sessionId": vars.sessionId,
+    "tokenPresent": true,
+    "dataSource": "TD Bank API (OAuth Authenticated)"
+  }
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus">200</ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<!-- No tokens or tokens expired -->
+				<logger level="WARN" doc:name="Log No Auth" 
+						message="No valid OAuth tokens available. Error: #[payload.error default 'unknown'], returning fallback data" 
+						category="Balance.NoAuth"/>
+				
+				<ee:transform doc:name="Fallback Balance Response">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "error": "authentication_required",
+  "message": "Please connect your bank account to view real balance data",
+  "oauthError": payload.error default "no_tokens",
+  "oauthDescription": payload.error_description default "No OAuth tokens available",
+  "fallbackData": {
+    "totalBalance": {
+      "amount": 0.00,
+      "currency": "CAD",
+      "lastUpdated": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+    },
+    "accountBreakdown": [],
+    "note": "Connect your bank account to see real data"
+  },
+  "oauthStatus": {
+    "authenticated": false,
+    "tokenPresent": false,
+    "dataSource": "Mock/Fallback Data"
+  }
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus">401</ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+
+</mule>

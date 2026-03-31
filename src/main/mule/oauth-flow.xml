@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" 
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns="http://www.mulesoft.org/schema/mule/core" 
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- OAuth Consent Initiation Endpoint -->
+    <flow name="oauth-connect-flow" doc:id="oauth-connect-flow">
+        <http:listener doc:name="GET /api/auth/connect" 
+                       doc:id="oauth-connect-listener" 
+                       config-ref="HTTP_Listener_config" 
+                       path="/api/auth/connect" 
+                       allowedMethods="GET">
+            <http:response statusCode="#[attributes.statusCode default 200]">
+                <http:headers><![CDATA[#[attributes.headers default {}]]]></http:headers>
+            </http:response>
+        </http:listener>
+        
+        <logger level="INFO" doc:name="Log Connect Request" 
+                doc:id="log-connect-request" 
+                message="OAuth connect request received for bank: #[attributes.queryParams.bank default 'unknown'] with access_types: #[attributes.queryParams.access_types default 'none']. Full URL: #[attributes.requestUri]" 
+                category="OAuth.Connect"/>
+        
+        <!-- Validate required parameters -->
+        <choice doc:name="Validate Parameters" doc:id="validate-parameters">
+            <when expression="#[isEmpty(attributes.queryParams.bank) or isEmpty(attributes.queryParams.access_types)]">
+                <logger level="ERROR" doc:name="Log Missing Parameters" 
+                        doc:id="log-missing-params" 
+                        message="Missing required parameters - bank: #[attributes.queryParams.bank], access_types: #[attributes.queryParams.access_types]" 
+                        category="OAuth.Error"/>
+                <ee:transform doc:name="Set Missing Parameters Error Response" doc:id="set-missing-params-error">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "missing_parameters", 
+    "error_description": "Both bank and access_types parameters are required"
+}]]></ee:set-payload>
+                        <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    statusCode: 400,
+    headers: {
+        "Content-Type": "application/json"
+    }
+}]]></ee:set-attributes>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <!-- Validate FDX scopes -->
+                <ee:transform doc:name="Validate and Transform Scopes" doc:id="validate-transform-scopes">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+var requestedScopes = (attributes.queryParams.access_types splitBy ",") map trim($)
+var allowedScopes = ["ACCOUNT_BASIC", "TRANSACTIONS", "CUSTOMER_CONTACT"]
+var invalidScopes = requestedScopes filter (!contains(allowedScopes, $))
+---
+{
+    requestedScopes: requestedScopes,
+    allowedScopes: allowedScopes,
+    invalidScopes: invalidScopes,
+    isValid: isEmpty(invalidScopes)
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                
+                <choice doc:name="Check Scope Validation" doc:id="check-scope-validation">
+                    <when expression="#[!payload.isValid]">
+                        <ee:transform doc:name="Set Scope Error Response" doc:id="set-scope-error">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "invalid_scope",
+    "error_description": "Invalid FDX scopes requested: " ++ (payload.invalidScopes joinBy ","),
+    "allowed_scopes": ["ACCOUNT_BASIC", "TRANSACTIONS", "CUSTOMER_CONTACT"]
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        <ee:transform doc:name="Set Scope Error Response Headers" doc:id="set-scope-error-headers">
+                            <ee:message>
+                                <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    statusCode: 400,
+    headers: {
+        "Content-Type": "application/json"
+    }
+}]]></ee:set-attributes>
+                            </ee:message>
+                        </ee:transform>
+                    </when>
+                    <otherwise>
+                        <!-- Construct authorization URL -->
+                        <ee:transform doc:name="Build Authorization URL" doc:id="build-auth-url">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::URL
+var baseScopes = "openid profile email"
+var fdxScopes = (attributes.queryParams.access_types splitBy ",") map trim($) joinBy " "
+var allScopes = baseScopes ++ " " ++ fdxScopes
+var authParams = {
+    response_type: "code",
+    client_id: "${oauth.auth0.client_id}",
+    redirect_uri: "${oauth.auth0.redirect_uri}",
+    scope: allScopes,
+    audience: "${oauth.auth0.audience}",
+    prompt: "consent",
+    state: uuid()
+}
+var queryString = (authParams pluck ((value, key) -> "$(key)=" ++ encodeURIComponent(value as String))) joinBy "&"
+---
+{
+    authorizationUrl: "${oauth.auth0.authorize_endpoint}" ++ "?" ++ queryString,
+    state: authParams.state
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        
+                        <logger level="INFO" doc:name="Log Authorization URL" 
+                                doc:id="log-auth-url" 
+                                message="Built authorization URL: #[payload.authorizationUrl]. State: #[payload.state]. About to redirect with 302." 
+                                category="OAuth.Redirect"/>
+                        
+                        <ee:transform doc:name="Set HTTP Redirect Response" doc:id="set-http-redirect-response">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+---
+""]]></ee:set-payload>
+                                <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    statusCode: 302,
+    headers: {
+        "Location": payload.authorizationUrl,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+}]]></ee:set-attributes>
+                            </ee:message>
+                        </ee:transform>
+                        
+                        <logger level="INFO" doc:name="Log HTTP Redirect" 
+                                doc:id="log-http-redirect" 
+                                message="Sending HTTP 302 redirect to: #[attributes.headers.Location]" 
+                                category="OAuth.Response"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+        
+        <error-handler>
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="oauth-connect-error-handler" type="ANY">
+                <logger level="ERROR" doc:name="Log Error" doc:id="log-connect-error" message="Error in OAuth connect flow: #[error.description]. Error type: #[error.errorType]. Detailed message: #[error.detailedDescription]" category="OAuth.Error"/>
+                <ee:transform doc:name="Set Internal Error Response" doc:id="set-internal-error">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "internal_error", 
+    "error_description": "An internal error occurred during authorization initiation",
+    "details": error.description default "Unknown error"
+}]]></ee:set-payload>
+                        <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    statusCode: 500,
+    headers: {
+        "Content-Type": "application/json"
+    }
+}]]></ee:set-attributes>
+                    </ee:message>
+                </ee:transform>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <!-- OAuth Callback and Token Exchange Endpoint -->
+    <flow name="oauth-callback-flow" doc:id="oauth-callback-flow">
+        <http:listener doc:name="GET /callback" 
+                       doc:id="oauth-callback-listener" 
+                       config-ref="HTTP_Listener_config" 
+                       path="/callback" 
+                       allowedMethods="GET">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[if(vars.redirectLocation != null) {"Location": vars.redirectLocation} else {}]]]></http:headers>
+            </http:response>
+        </http:listener>
+        
+        <logger level="INFO" doc:name="Log Callback Request" 
+                doc:id="log-callback-request" 
+                message="OAuth callback received with code parameter present: #[!isEmpty(attributes.queryParams.code)]" 
+                category="OAuth.Callback"/>
+        
+        <!-- Validate authorization code parameter -->
+        <choice doc:name="Validate Authorization Code" doc:id="validate-auth-code">
+            <when expression="#[isEmpty(attributes.queryParams.code)]">
+                <ee:transform doc:name="Set Missing Code Error" doc:id="set-missing-code-error">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    redirectLocation: "${frontend.base_url}" ++ "${frontend.error_redirect_path}" ++ "&error=missing_code",
+    httpStatus: 302
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                <set-variable value="#[payload.redirectLocation]" variableName="redirectLocation" doc:name="Set Error Redirect" doc:id="set-error-redirect-missing-code"/>
+                <set-variable value="#[payload.httpStatus]" variableName="httpStatus" doc:name="Set 302 Status" doc:id="set-302-status-error"/>
+                <set-payload value="" doc:name="Clear Payload" doc:id="clear-payload-error"/>
+            </when>
+            <otherwise>
+                <!-- Exchange authorization code for tokens -->
+                <ee:transform doc:name="Prepare Token Request" doc:id="prepare-token-request">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+    grant_type: "authorization_code",
+    client_id: "${oauth.auth0.client_id}",
+    client_secret: "${oauth.auth0.client_secret}",
+    code: attributes.queryParams.code,
+    redirect_uri: "${oauth.auth0.redirect_uri}"
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                
+                <logger level="DEBUG" doc:name="Log Token Request" 
+                        doc:id="log-token-request" 
+                        message="Making token exchange request to Auth0" 
+                        category="OAuth.TokenExchange"/>
+                
+                <!-- Make token exchange request to Auth0 -->
+                <http:request method="POST" 
+                              doc:name="Exchange Code for Tokens" 
+                              doc:id="token-exchange-request" 
+                              config-ref="HTTP_Request_configuration" 
+                              url="${oauth.auth0.token_endpoint}">
+                    <http:headers><![CDATA[#[{
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/json"
+                    }]]]></http:headers>
+                </http:request>
+                
+                <!-- Process token response -->
+                <choice doc:name="Check Token Response" doc:id="check-token-response">
+                    <when expression="#[attributes.statusCode >= 200 and attributes.statusCode &lt; 300]">
+                        <ee:transform doc:name="Extract Tokens" doc:id="extract-tokens">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    access_token: payload.access_token,
+    id_token: payload.id_token,
+    token_type: payload.token_type default "Bearer",
+    expires_in: payload.expires_in
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        
+                        <logger level="INFO" doc:name="Log Token Success" 
+                                doc:id="log-token-success" 
+                                message="Token exchange successful - Access token length: #[sizeOf(payload.access_token)], ID token present: #[!isEmpty(payload.id_token)]" 
+                                category="OAuth.Success"/>
+                        
+                        <!-- Store tokens in flow variables (in-memory storage) -->
+                        <ee:transform doc:name="Prepare Token Storage" doc:id="prepare-token-storage">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var currentTime = now()
+var expiresAt = currentTime + ((payload.expires_in default 3600) as Number) * 1000 // Convert seconds to milliseconds
+---
+{
+    access_token: payload.access_token,
+    id_token: payload.id_token,
+    token_type: payload.token_type default "Bearer",
+    expires_in: payload.expires_in,
+    expires_at: expiresAt as String,
+    stored_at: currentTime as String,
+    session_id: "oauth_session_" ++ uuid()
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        
+                        <set-variable value="#[payload]" variableName="oauthTokens" doc:name="Store OAuth Tokens in Memory" doc:id="store-oauth-tokens-memory"/>
+                        
+                        <logger level="INFO" doc:name="Log Token Storage" 
+                                doc:id="log-token-storage" 
+                                message="OAuth tokens stored successfully in memory with session ID: #[payload.session_id], expires at: #[payload.expires_at]" 
+                                category="OAuth.TokenStorage"/>
+                        
+                        <!-- Redirect to frontend success page -->
+                        <ee:transform doc:name="Set Success Redirect" doc:id="set-success-redirect">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    redirectLocation: "${frontend.base_url}" ++ "${frontend.success_redirect_path}",
+    httpStatus: 302
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        <set-variable value="#[payload.redirectLocation]" variableName="redirectLocation" doc:name="Store Success Redirect" doc:id="store-success-redirect"/>
+                        <set-variable value="#[payload.httpStatus]" variableName="httpStatus" doc:name="Store 302 Status" doc:id="store-302-status-success"/>
+                        <set-payload value="" doc:name="Clear Payload for Redirect" doc:id="clear-payload-success"/>
+                    </when>
+                    <otherwise>
+                        <logger level="ERROR" doc:name="Log Token Error" 
+                                doc:id="log-token-error" 
+                                message="Token exchange failed with status: #[attributes.statusCode], response: #[payload]" 
+                                category="OAuth.Error"/>
+                        
+                        <ee:transform doc:name="Set Token Error Redirect" doc:id="set-token-error-redirect">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    redirectLocation: "${frontend.base_url}" ++ "${frontend.error_redirect_path}" ++ "&error=token_exchange_failed",
+    httpStatus: 302
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                        <set-variable value="#[payload.redirectLocation]" variableName="redirectLocation" doc:name="Store Token Error Redirect" doc:id="store-token-error-redirect"/>
+                        <set-variable value="#[payload.httpStatus]" variableName="httpStatus" doc:name="Store 302 Status" doc:id="store-302-status-token-error"/>
+                        <set-payload value="" doc:name="Clear Payload" doc:id="clear-payload-token-error"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+        
+        <error-handler>
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="oauth-callback-error-handler" type="ANY">
+                <logger level="ERROR" doc:name="Log Callback Error" doc:id="log-callback-error" message="Error in OAuth callback flow: #[error.description]" category="OAuth.Error"/>
+                <ee:transform doc:name="Set Internal Error Redirect" doc:id="set-internal-error-redirect">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    redirectLocation: "${frontend.base_url}" ++ "${frontend.error_redirect_path}" ++ "&error=internal_error",
+    httpStatus: 302
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                <set-variable value="#[payload.redirectLocation]" variableName="redirectLocation" doc:name="Store Internal Error Redirect" doc:id="store-internal-error-redirect"/>
+                <set-variable value="#[payload.httpStatus]" variableName="httpStatus" doc:name="Store 302 Status" doc:id="store-302-status-internal-error"/>
+                <set-payload value="" doc:name="Clear Payload" doc:id="clear-payload-internal-error"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+    
+    <!-- Utility Sub-Flow to Retrieve Stored OAuth Tokens -->
+    <sub-flow name="get-oauth-tokens-subflow" doc:id="get-oauth-tokens-subflow">
+        <logger level="DEBUG" doc:name="Log Token Retrieval Request" 
+                doc:id="log-token-retrieval" 
+                message="Attempting to retrieve stored OAuth tokens from memory" 
+                category="OAuth.TokenRetrieval"/>
+        
+        <choice doc:name="Check Token Availability" doc:id="check-token-availability">
+            <when expression="#[vars.oauthTokens != null]">
+                <!-- Check if tokens are still valid (not expired) -->
+                <ee:transform doc:name="Validate Token Expiry" doc:id="validate-token-expiry">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var currentTime = now()
+var tokenExpiresAt = vars.oauthTokens.expires_at as DateTime
+var isExpired = currentTime > tokenExpiresAt
+---
+{
+    tokens: vars.oauthTokens,
+    isExpired: isExpired,
+    currentTime: currentTime as String,
+    expiresAt: tokenExpiresAt as String
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                
+                <choice doc:name="Check Token Expiry" doc:id="check-token-expiry">
+                    <when expression="#[payload.isExpired]">
+                        <logger level="WARN" doc:name="Log Expired Tokens" 
+                                doc:id="log-expired-tokens" 
+                                message="OAuth tokens have expired. Current time: #[payload.currentTime], Token expired at: #[payload.expiresAt]" 
+                                category="OAuth.TokenExpiry"/>
+                        
+                        <ee:transform doc:name="Set Expired Token Response" doc:id="set-expired-token-response">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "token_expired",
+    "error_description": "OAuth tokens have expired. Please re-authenticate.",
+    "expired_at": payload.expiresAt
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                    </when>
+                    <otherwise>
+                        <logger level="DEBUG" doc:name="Log Valid Tokens" 
+                                doc:id="log-valid-tokens" 
+                                message="OAuth tokens are valid and available. Session ID: #[payload.tokens.session_id]" 
+                                category="OAuth.TokenRetrieval"/>
+                        
+                        <ee:transform doc:name="Return Valid Tokens" doc:id="return-valid-tokens">
+                            <ee:message>
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "success": true,
+    "tokens": {
+        access_token: payload.tokens.access_token,
+        id_token: payload.tokens.id_token,
+        token_type: payload.tokens.token_type,
+        expires_at: payload.tokens.expires_at,
+        session_id: payload.tokens.session_id
+    }
+}]]></ee:set-payload>
+                            </ee:message>
+                        </ee:transform>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <logger level="WARN" doc:name="Log No Tokens" 
+                        doc:id="log-no-tokens" 
+                        message="No OAuth tokens found in memory. User needs to authenticate first." 
+                        category="OAuth.TokenRetrieval"/>
+                
+                <ee:transform doc:name="Set No Tokens Response" doc:id="set-no-tokens-response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "no_tokens",
+    "error_description": "No OAuth tokens found. Please authenticate first by connecting your bank account."
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </sub-flow>
+</mule>

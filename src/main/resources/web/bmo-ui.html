@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#004C51">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>BMO Open Banking</title>
+    <style>
+        :root {
+            --bmo-teal: #007078;
+            --bmo-teal-dark: #005c66;
+            --bmo-navy: #0c2340;
+            --bmo-cream: #f4f6f8;
+            --bmo-white: #ffffff;
+            --text: #1a2b3c;
+            --text-muted: #5c6d7e;
+            --border: rgba(12, 35, 64, 0.08);
+            --shadow-sm: 0 2px 8px rgba(12, 35, 64, 0.06);
+            --shadow-md: 0 8px 24px rgba(12, 35, 64, 0.12);
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+            --tap-size: 48px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            background: var(--bmo-cream);
+            min-height: 100%;
+            min-height: 100dvh;
+            color: var(--text);
+            line-height: 1.45;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-shell {
+            max-width: 430px;
+            margin: 0 auto;
+            min-height: 100dvh;
+            min-height: 100vh;
+            background: var(--bmo-cream);
+            box-shadow: 0 0 0 1px var(--border), var(--shadow-md);
+            position: relative;
+        }
+
+        @media (min-width: 480px) {
+            .app-shell {
+                margin-top: env(safe-area-inset-top, 12px);
+                margin-bottom: env(safe-area-inset-bottom, 12px);
+                border-radius: 24px;
+                overflow: hidden;
+                min-height: calc(100dvh - 24px);
+            }
+        }
+
+        .app-header {
+            background: linear-gradient(180deg, var(--bmo-navy) 0%, #0f2d52 100%);
+            color: var(--bmo-white);
+            padding: calc(12px + env(safe-area-inset-top)) 20px 18px;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            flex-shrink: 0;
+            background: var(--bmo-teal);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bmo-white);
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: -0.02em;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .logo-text h1 {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-text p {
+            font-size: 12px;
+            opacity: 0.78;
+            margin-top: 2px;
+        }
+
+        .badge {
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.14);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .app-main {
+            padding: 20px 18px calc(100px + env(safe-area-inset-bottom));
+        }
+
+        @media (min-width: 900px) {
+            .app-shell {
+                max-width: 1100px;
+            }
+            .app-main {
+                padding-bottom: 32px;
+            }
+        }
+
+        .overview h2 {
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .overview p.lead {
+            color: var(--text-muted);
+            font-size: 15px;
+            margin-bottom: 24px;
+            max-width: 36em;
+        }
+
+        .grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        @media (min-width: 900px) {
+            .grid { grid-template-columns: 1fr 280px; align-items: start; }
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 360px) {
+            .cards { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--bmo-white);
+            border-radius: var(--radius-lg);
+            padding: 18px 16px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.25s var(--ease-spring), box-shadow 0.25s ease;
+            position: relative;
+        }
+
+        @media (hover: hover) {
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-md);
+            }
+        }
+
+        .card-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .card-description {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .sidebar {
+            background: var(--bmo-white);
+            border-radius: var(--radius-lg);
+            padding: 22px 20px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        @media (max-width: 899px) {
+            .sidebar {
+                display: none;
+            }
+        }
+
+        .sidebar h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .sidebar p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 18px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            min-height: var(--tap-size);
+            background: linear-gradient(180deg, var(--bmo-teal) 0%, var(--bmo-teal-dark) 100%);
+            color: var(--bmo-white);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 112, 120, 0.35);
+            transition: transform 0.2s var(--ease-spring), filter 0.2s;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        @media (hover: hover) {
+            .btn-primary:hover { filter: brightness(1.05); }
+        }
+
+        .api-section {
+            margin-top: 32px;
+        }
+
+        .api-section h3 {
+            font-size: 19px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .api-section .api-lead {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .api-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .api-card {
+            background: var(--bmo-white);
+            border-radius: var(--radius-md);
+            padding: 18px;
+            border: 1px solid var(--border);
+        }
+
+        .api-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .api-card p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+
+        .api-btn {
+            background: rgba(0, 112, 120, 0.08);
+            color: var(--bmo-teal-dark);
+            border: 1px solid rgba(0, 112, 120, 0.35);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+            min-height: var(--tap-size);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        @media (hover: hover) {
+            .api-btn:hover {
+                background: var(--bmo-teal);
+                color: var(--bmo-white);
+            }
+        }
+
+        .loading { display: none; color: var(--bmo-teal); font-size: 13px; margin-top: 8px; font-weight: 500; }
+        .results {
+            display: none;
+            margin-top: 12px;
+            background: rgba(12, 35, 64, 0.04);
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .bottom-bar {
+            display: none;
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 0;
+            width: 100%;
+            max-width: 430px;
+            padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+            background: rgba(255, 255, 255, 0.88);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border);
+            z-index: 50;
+            box-shadow: 0 -4px 24px rgba(12, 35, 64, 0.08);
+        }
+
+        @media (max-width: 899px) {
+            .bottom-bar { display: block; }
+        }
+
+        @media (min-width: 900px) {
+            .bottom-bar { max-width: 1100px; }
+        }
+
+        .bottom-bar__btn {
+            width: 100%;
+            min-height: var(--tap-size);
+            border: none;
+            border-radius: var(--radius-md);
+            background: linear-gradient(180deg, var(--bmo-teal) 0%, var(--bmo-teal-dark) 100%);
+            color: var(--bmo-white);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(0, 112, 120, 0.35);
+            transition: transform 0.2s var(--ease-spring);
+        }
+
+        .bottom-bar__btn:active { transform: scale(0.985); }
+
+        .bottom-bar__icon {
+            font-size: 20px;
+            font-weight: 400;
+            line-height: 1;
+            opacity: 0.95;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(12, 35, 64, 0.45);
+            z-index: 1000;
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .modal-overlay.is-open { display: flex; }
+
+        @media (max-width: 640px) {
+            .modal-overlay { align-items: flex-end; padding: 0; }
+        }
+
+        .modal {
+            background: var(--bmo-white);
+            border-radius: var(--radius-lg);
+            padding: 28px 22px;
+            max-width: 400px;
+            width: 100%;
+            max-height: min(90dvh, 640px);
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            z-index: 1001;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 640px) {
+            .modal {
+                max-width: 100%;
+                border-radius: 22px 22px 0 0;
+                padding-bottom: max(24px, env(safe-area-inset-bottom));
+                animation: sheetUp 0.38s var(--ease-spring) both;
+            }
+        }
+
+        @keyframes sheetUp {
+            from { transform: translateY(100%); opacity: 0.85; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .modal { animation: none; }
+            .card { transition: none; }
+        }
+
+        .modal h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+
+        .modal p {
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+            font-size: 15px;
+        }
+
+        .bank-list { display: grid; gap: 10px; margin-bottom: 22px; }
+
+        .bank-option {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            background: var(--bmo-white);
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s var(--ease-spring);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bank-option:active { transform: scale(0.99); }
+
+        @media (hover: hover) {
+            .bank-option:hover {
+                border-color: rgba(0, 112, 120, 0.45);
+                box-shadow: var(--shadow-sm);
+            }
+        }
+
+        .bank-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bmo-teal);
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bmo-white);
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .bank-name { font-weight: 600; color: var(--text); font-size: 15px; }
+        .bank-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+        .modal-buttons { display: flex; gap: 12px; }
+
+        .modal-btn {
+            flex: 1;
+            min-height: var(--tap-size);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, filter 0.2s;
+        }
+
+        .modal-btn-primary {
+            background: var(--bmo-teal);
+            color: var(--bmo-white);
+            border: none;
+        }
+
+        .modal-btn-secondary {
+            background: rgba(12, 35, 64, 0.05);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .connection-status { display: none; text-align: center; padding: 16px 8px 8px; }
+
+        .status-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+        }
+
+        .status-success { background: #0d9f6e; color: white; }
+        .status-loading { background: #e8ecf0; color: #6b7c8d; }
+
+        body.modal-open { overflow: hidden; touch-action: none; }
+
+        .toast-host {
+            position: fixed;
+            top: calc(12px + env(safe-area-inset-top));
+            left: 50%;
+            transform: translate(-50%, -120%);
+            z-index: 2000;
+            width: calc(100% - 32px);
+            max-width: 400px;
+            transition: transform 0.38s var(--ease-spring);
+        }
+
+        .toast-host.is-visible { transform: translate(-50%, 0); }
+
+        .toast {
+            background: #0d9f6e;
+            color: white;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+        }
+
+        .toast--warn { background: #c27a00; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .app-main .overview,
+        .app-main .card {
+            animation: fadeInUp 0.5s var(--ease-spring) both;
+        }
+
+        .app-main .card:nth-child(1) { animation-delay: 0.05s; }
+        .app-main .card:nth-child(2) { animation-delay: 0.1s; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .app-main .overview,
+            .app-main .card { animation: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="header-row">
+                <div class="logo">
+                    <div class="logo-icon">BMO</div>
+                    <div class="logo-text">
+                        <h1>Open Banking</h1>
+                        <p>Proof of concept</p>
+                    </div>
+                </div>
+                <span class="badge">Sandbox</span>
+            </div>
+        </header>
+
+        <main class="app-main">
+            <div class="grid">
+                <section class="overview">
+                    <h2>Your overview</h2>
+                    <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship—all in one place.</p>
+
+                    <div class="cards">
+                        <div class="card">
+                            <div class="card-label">Cash</div>
+                            <div class="card-value" id="totalBalance">—</div>
+                            <div class="card-description">Connect a bank to populate</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">External accounts</div>
+                            <div class="card-value" id="accountCount">0</div>
+                            <div class="card-description">No connections yet</div>
+                        </div>
+                    </div>
+
+                    <div class="api-section">
+                        <h3>API endpoints</h3>
+                        <p class="api-lead">Test the BMO Open Banking API endpoints:</p>
+                        <div class="api-grid">
+                            <div class="api-card">
+                                <h4>Accounts</h4>
+                                <p>Retrieve account information including balances and account types.</p>
+                                <button type="button" class="api-btn" onclick="testEndpoint('/api/accounts', 'accounts')">Test Accounts API</button>
+                                <div id="accounts-loading" class="loading">Loading…</div>
+                                <div id="accounts-results" class="results"></div>
+                            </div>
+                            <div class="api-card">
+                                <h4>Transactions</h4>
+                                <p>Get transaction history and details for all accounts.</p>
+                                <button type="button" class="api-btn" onclick="testEndpoint('/api/transactions', 'transactions')">Test Transactions API</button>
+                                <div id="transactions-loading" class="loading">Loading…</div>
+                                <div id="transactions-results" class="results"></div>
+                            </div>
+                            <div class="api-card">
+                                <h4>Balance summary</h4>
+                                <p>View consolidated balance information across all accounts.</p>
+                                <button type="button" class="api-btn" onclick="testEndpoint('/api/balance', 'balance')">Test Balance API</button>
+                                <div id="balance-loading" class="loading">Loading…</div>
+                                <div id="balance-results" class="results"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <aside class="sidebar">
+                    <h3>Quick actions</h3>
+                    <p>Securely connect an external institution using OAuth.</p>
+                    <button type="button" class="btn-primary" onclick="openConnectionModal()">Connect external bank</button>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <nav class="bottom-bar" aria-label="Primary actions">
+        <button type="button" class="bottom-bar__btn" onclick="openConnectionModal()">
+            <span class="bottom-bar__icon" aria-hidden="true">＋</span>
+            Connect external bank
+        </button>
+    </nav>
+
+    <div class="modal-overlay" id="connectionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal">
+            <div id="bankSelection">
+                <h3 id="modalTitle">Connect your bank</h3>
+                <p>Choose your financial institution to securely link your accounts.</p>
+
+                <div class="bank-list">
+                    <div class="bank-option" onclick="selectBank('RBC')">
+                        <div class="bank-icon">RBC</div>
+                        <div>
+                            <div class="bank-name">Royal Bank of Canada</div>
+                            <div class="bank-sub">Personal &amp; business banking</div>
+                        </div>
+                    </div>
+                    <div class="bank-option" onclick="selectBank('TD')">
+                        <div class="bank-icon">TD</div>
+                        <div>
+                            <div class="bank-name">TD Canada Trust</div>
+                            <div class="bank-sub">Personal &amp; business banking</div>
+                        </div>
+                    </div>
+                    <div class="bank-option" onclick="selectBank('Scotia')">
+                        <div class="bank-icon">SCO</div>
+                        <div>
+                            <div class="bank-name">Scotiabank</div>
+                            <div class="bank-sub">Personal &amp; business banking</div>
+                        </div>
+                    </div>
+                    <div class="bank-option" onclick="selectBank('CIBC')">
+                        <div class="bank-icon">CIB</div>
+                        <div>
+                            <div class="bank-name">CIBC</div>
+                            <div class="bank-sub">Personal &amp; business banking</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn modal-btn-secondary" onclick="closeConnectionModal()">Cancel</button>
+                </div>
+            </div>
+
+            <div class="connection-status" id="connectionStatus">
+                <div class="status-icon status-loading" id="statusIcon">⏳</div>
+                <h3 id="statusTitle">Connecting…</h3>
+                <p id="statusMessage">Securely authenticating with your bank…</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+    <script>
+        async function testEndpoint(endpoint, type) {
+            const loadingEl = document.getElementById(type + '-loading');
+            const resultsEl = document.getElementById(type + '-results');
+
+            loadingEl.style.display = 'block';
+            resultsEl.style.display = 'none';
+
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+
+                resultsEl.textContent = JSON.stringify(data, null, 2);
+                resultsEl.style.display = 'block';
+
+                if (type === 'accounts') {
+                    updateOverview(data);
+                }
+            } catch (error) {
+                resultsEl.textContent = 'Error: ' + error.message;
+                resultsEl.style.display = 'block';
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        function updateOverview(accountsData) {
+            if (accountsData && accountsData.accounts) {
+                const accounts = accountsData.accounts;
+                const totalBalance = accounts.reduce(function (sum, acc) { return sum + acc.balance; }, 0);
+
+                document.getElementById('totalBalance').textContent = '$' + totalBalance.toLocaleString('en-CA') + ' CAD';
+                document.getElementById('accountCount').textContent = accounts.length;
+
+                document.querySelectorAll('.card-description')[0].textContent = 'Total across ' + accounts.length + ' accounts';
+                document.querySelectorAll('.card-description')[1].textContent = accounts.length + ' active connections';
+            }
+        }
+
+        function loadAccountData() {
+            testEndpoint('/api/accounts', 'accounts');
+        }
+
+        function openConnectionModal() {
+            var el = document.getElementById('connectionModal');
+            el.style.display = 'flex';
+            el.classList.add('is-open');
+            document.body.classList.add('modal-open');
+            document.getElementById('bankSelection').style.display = 'block';
+            document.getElementById('connectionStatus').style.display = 'none';
+        }
+
+        function closeConnectionModal() {
+            var el = document.getElementById('connectionModal');
+            el.classList.remove('is-open');
+            el.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+
+        function selectBank(bankName) {
+            document.getElementById('bankSelection').style.display = 'none';
+            document.getElementById('connectionStatus').style.display = 'block';
+
+            var statusIcon = document.getElementById('statusIcon');
+            var statusTitle = document.getElementById('statusTitle');
+            var statusMessage = document.getElementById('statusMessage');
+
+            statusIcon.innerHTML = '⏳';
+            statusIcon.className = 'status-icon status-loading';
+            statusTitle.textContent = 'Connecting…';
+            statusMessage.textContent = 'Securely authenticating with ' + bankName + '…';
+
+            setTimeout(function () {
+                statusIcon.innerHTML = '🔐';
+                statusTitle.textContent = 'Authenticating';
+                statusMessage.textContent = 'Redirecting to ' + bankName + ' login…';
+
+                setTimeout(function () {
+                    statusIcon.innerHTML = '✓';
+                    statusIcon.className = 'status-icon status-success';
+                    statusTitle.textContent = 'Connected!';
+                    statusMessage.textContent = 'Successfully connected to ' + bankName + '. Loading your accounts…';
+
+                    setTimeout(function () {
+                        closeConnectionModal();
+                        loadAccountData();
+                        showNotification('Successfully connected to ' + bankName + '!', 'success');
+                    }, 2000);
+                }, 1500);
+            }, 1500);
+        }
+
+        function showNotification(message, type) {
+            var host = document.getElementById('toastHost');
+            var n = document.createElement('div');
+            n.className = 'toast' + (type === 'success' ? '' : ' toast--warn');
+            n.textContent = message;
+            host.innerHTML = '';
+            host.appendChild(n);
+            requestAnimationFrame(function () {
+                host.classList.add('is-visible');
+            });
+            setTimeout(function () {
+                host.classList.remove('is-visible');
+                setTimeout(function () {
+                    if (host.firstChild) host.removeChild(host.firstChild);
+                }, 400);
+            }, 3200);
+        }
+
+        document.getElementById('connectionModal').addEventListener('click', function (e) {
+            if (e.target.id === 'connectionModal') {
+                closeConnectionModal();
+            }
+        });
+
+        window.addEventListener('load', function () {
+            setTimeout(loadAccountData, 500);
+        });
+    </script>
+</body>
+</html>

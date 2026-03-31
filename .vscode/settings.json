@@ -1,0 +1,18 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.compile.nullAnalysis.mode": "disabled",
+    "maven.executable.path": "mvn",
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/target": true,
+        "**/.mule": true,
+        ".mule": true
+    },
+    "xml.validation.enabled": true,
+    "xml.validation.namespaces.enabled": "always",
+    "mulesoft.runtime.version": "4.10.0"
+}

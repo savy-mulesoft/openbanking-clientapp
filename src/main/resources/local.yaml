@@ -1,0 +1,23 @@
+# Local environment configuration for OAuth 2.0 flow
+oauth:
+  auth0:
+    domain: "dev-77sisti8b11ec8tp.us.auth0.com"
+    authorize_endpoint: "https://dev-77sisti8b11ec8tp.us.auth0.com/authorize"
+    token_endpoint: "https://dev-77sisti8b11ec8tp.us.auth0.com/oauth/token"
+    client_id: "ywXBlXbbDmE8K2VkuXKy36YjjHlo7iTv"
+    client_secret: "${secure::oauth.auth0.client_secret}"
+    audience: "urn:fdx:tdbank"
+    redirect_uri: "http://localhost:8081/callback"
+
+# Frontend redirect configuration
+frontend:
+  base_url: "http://localhost:8081"
+  success_redirect_path: "/?status=success&bank=TD%20Bank&scopes=ACCOUNT_BASIC,TRANSACTIONS,CUSTOMER_CONTACT"
+  error_redirect_path: "/?status=error"
+
+# FDX Scope validation
+fdx:
+  allowed_scopes:
+    - "ACCOUNT_BASIC"
+    - "TRANSACTIONS" 
+    - "CUSTOMER_CONTACT"

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" 
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+	<global-property name="http.host" value="localhost" doc:name="http.host" />
+	<global-property name="http.port" value="8081" doc:name="http.port" />
+	
+	<configuration-properties file="application.properties" doc:name="Configuration properties" doc:id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+	<configuration-properties file="local.yaml" doc:name="Local YAML Configuration" doc:id="local-yaml-config" />
+	
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c8a7b2e6-2b55-4e72-9c31-e7f5b8a3d4f1" >
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	
+	<!-- HTTP Request Configuration for Auth0 API calls -->
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="HTTP_Request_configuration">
+		<http:request-connection />
+	</http:request-config>
+	
+</mule>

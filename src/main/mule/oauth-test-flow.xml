@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" 
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core" 
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- OAuth Configuration Test Endpoint -->
+    <flow name="oauth-config-test-flow" doc:id="oauth-config-test-flow">
+        <http:listener doc:name="GET /api/auth/config" 
+                       doc:id="oauth-config-test-listener" 
+                       config-ref="HTTP_Listener_config" 
+                       path="/api/auth/config" 
+                       allowedMethods="GET"/>
+        
+        <logger level="INFO" doc:name="Log Config Request" 
+                doc:id="log-config-request" 
+                message="OAuth configuration test requested" 
+                category="OAuth.ConfigTest"/>
+        
+        <ee:transform doc:name="OAuth Configuration Response" doc:id="oauth-config-response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "oauth_config": {
+        "domain": "${oauth.auth0.domain}",
+        "authorize_endpoint": "${oauth.auth0.authorize_endpoint}",
+        "token_endpoint": "${oauth.auth0.token_endpoint}",
+        "client_id": "${oauth.auth0.client_id}",
+        "client_secret_configured": !isEmpty("${oauth.auth0.client_secret}"),
+        "audience": "${oauth.auth0.audience}",
+        "redirect_uri": "${oauth.auth0.redirect_uri}"
+    },
+    "frontend_config": {
+        "base_url": "${frontend.base_url}",
+        "success_redirect_path": "${frontend.success_redirect_path}",
+        "error_redirect_path": "${frontend.error_redirect_path}"
+    },
+    "fdx_config": {
+        "allowed_scopes": "${fdx.allowed_scopes}"
+    },
+    "timestamp": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <logger level="INFO" doc:name="Log Config Response" 
+                doc:id="log-config-response" 
+                message="OAuth configuration test response sent" 
+                category="OAuth.ConfigTest"/>
+    </flow>
+</mule>

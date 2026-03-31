@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="hello-world-flow" doc:id="f8d3e2c1-9b4a-5e6f-7c8d-9e0f1a2b3c4d" >
+		<http:listener doc:name="HTTP Listener" doc:id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" config-ref="HTTP_Listener_config" path="/hello"/>
+		<logger level="INFO" doc:name="Log Request" doc:id="b2c3d4e5-f6a7-8901-bcde-f23456789012" message="Hello World endpoint called"/>
+		<ee:transform doc:name="Generate Hello World Response" doc:id="c3d4e5f6-a7b8-9012-cdef-345678901234">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Hello World!",
+  timestamp: now(),
+  status: "success"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log Response" doc:id="d4e5f6a7-b8c9-0123-defa-456789012345" message="Hello World response sent"/>
+	</flow>
+</mule>
