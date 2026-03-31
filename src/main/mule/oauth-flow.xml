@@ -114,6 +114,7 @@ fun bankBrandKey(b) = do {
     var u = upper(trim(b as String default ""))
     ---
     if (u == "RBC" or contains(u, "ROYAL")) "rbc"
+    else if (u == "BMO" or contains(u, "BANK OF MONTREAL") or contains(u, "BMO")) "bmo"
     else if (u == "TD" or endsWith(u, "TD") or startsWith(u, "TD")) "td"
     else if (contains(u, "SCOTIA") or u == "SCO") "scotia"
     else if (u == "CIBC" or startsWith(u, "CIB")) "cibc"
@@ -121,6 +122,7 @@ fun bankBrandKey(b) = do {
 }
 fun bankDisplayName(b, k) =
     if (k == "rbc") "Royal Bank of Canada"
+    else if (k == "bmo") "BMO"
     else if (k == "td") "TD Canada Trust"
     else if (k == "scotia") "Scotiabank"
     else if (k == "cibc") "CIBC"
@@ -352,6 +354,7 @@ fun bankBrandKey(b) = do {
     var u = upper(trim(b as String default ""))
     ---
     if (u == "RBC" or contains(u, "ROYAL")) "rbc"
+    else if (u == "BMO" or contains(u, "BANK OF MONTREAL") or contains(u, "BMO")) "bmo"
     else if (u == "TD" or endsWith(u, "TD") or startsWith(u, "TD")) "td"
     else if (contains(u, "SCOTIA") or u == "SCO") "scotia"
     else if (u == "CIBC" or startsWith(u, "CIB")) "cibc"
@@ -359,6 +362,7 @@ fun bankBrandKey(b) = do {
 }
 fun bankDisplayNameFrom(b, k) =
     if (k == "rbc") "Royal Bank of Canada"
+    else if (k == "bmo") "BMO"
     else if (k == "td") "TD Canada Trust"
     else if (k == "scotia") "Scotiabank"
     else if (k == "cibc") "CIBC"

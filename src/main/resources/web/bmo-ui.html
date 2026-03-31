@@ -90,16 +90,21 @@
             width: 42px;
             height: 42px;
             flex-shrink: 0;
-            background: var(--bmo-teal);
+            background: var(--bmo-white);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--bmo-white);
-            font-weight: 700;
-            font-size: 11px;
-            letter-spacing: -0.02em;
+            overflow: hidden;
             box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .logo-text h1 {
@@ -484,15 +489,21 @@
         .bank-icon {
             width: 40px;
             height: 40px;
-            background: var(--bmo-teal);
+            background: var(--bmo-white);
             border-radius: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--bmo-white);
-            font-size: 11px;
-            font-weight: 700;
             flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .bank-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .bank-name { font-weight: 600; color: var(--text); font-size: 15px; }
@@ -636,7 +647,8 @@
             justify-content: center;
             overflow: hidden;
         }
-        .external-account-row .row-logo svg { width: 100%; height: 100%; display: block; }
+        .external-account-row .row-logo svg,
+        .external-account-row .row-logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
         .external-account-row .row-scopes {
             flex: 1;
             min-width: 0;
@@ -688,7 +700,9 @@
         <header class="app-header">
             <div class="header-row">
                 <div class="logo">
-                    <div class="logo-icon">BMO</div>
+                    <div class="logo-icon" role="img" aria-label="BMO">
+                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" loading="lazy" />
+                    </div>
                     <div class="logo-text">
                         <h1>Open Banking</h1>
                         <p>Proof of concept</p>
@@ -770,28 +784,36 @@
 
                 <div class="bank-list">
                     <div class="bank-option" onclick="selectBank('RBC')">
-                        <div class="bank-icon">RBC</div>
+                        <div class="bank-icon" aria-hidden="true">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxnYZQANBWQdJQ9IWBEppHxJFAUpC1W00yyQ&amp;s" alt="" width="40" height="40" loading="lazy" />
+                        </div>
                         <div>
                             <div class="bank-name">Royal Bank of Canada</div>
                             <div class="bank-sub">Personal &amp; business banking</div>
                         </div>
                     </div>
                     <div class="bank-option" onclick="selectBank('TD')">
-                        <div class="bank-icon">TD</div>
+                        <div class="bank-icon" aria-hidden="true">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg" alt="" width="40" height="40" loading="lazy" />
+                        </div>
                         <div>
                             <div class="bank-name">TD Canada Trust</div>
                             <div class="bank-sub">Personal &amp; business banking</div>
                         </div>
                     </div>
                     <div class="bank-option" onclick="selectBank('Scotia')">
-                        <div class="bank-icon">SCO</div>
+                        <div class="bank-icon" aria-hidden="true">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSc3vraaVxRZK-kXdRhvSrdiGxvvkfZxw296A&amp;s" alt="" width="40" height="40" loading="lazy" />
+                        </div>
                         <div>
                             <div class="bank-name">Scotiabank</div>
                             <div class="bank-sub">Personal &amp; business banking</div>
                         </div>
                     </div>
                     <div class="bank-option" onclick="selectBank('CIBC')">
-                        <div class="bank-icon">CIB</div>
+                        <div class="bank-icon" aria-hidden="true">
+                            <img src="https://reseaucapital.com/wp-content/uploads/2017/10/unnamed.png" alt="" width="40" height="40" loading="lazy" />
+                        </div>
                         <div>
                             <div class="bank-name">CIBC</div>
                             <div class="bank-sub">Personal &amp; business banking</div>

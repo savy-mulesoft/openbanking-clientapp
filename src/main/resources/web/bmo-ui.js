@@ -3,6 +3,15 @@
 
     var LS_KEY = 'ob_external_connection_v1';
 
+    /** Hosted bank marks (user-supplied URLs). */
+    var BANK_LOGO_URLS = {
+        bmo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&s',
+        rbc: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxnYZQANBWQdJQ9IWBEppHxJFAUpC1W00yyQ&s',
+        td: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg',
+        scotia: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSc3vraaVxRZK-kXdRhvSrdiGxvvkfZxw296A&s',
+        cibc: 'https://reseaucapital.com/wp-content/uploads/2017/10/unnamed.png'
+    };
+
     function coerceArray(v) {
         if (v == null) return [];
         if (Array.isArray(v)) return v;
@@ -123,6 +132,7 @@
         var n = String(bankName || '')
             .trim()
             .toUpperCase();
+        if (n === 'BMO' || n.indexOf('BMO') !== -1 || n.indexOf('BANK OF MONTREAL') !== -1) return 'bmo';
         if (n === 'RBC' || n.indexOf('ROYAL') !== -1) return 'rbc';
         if (n === 'TD' || n.indexOf('TD') !== -1) return 'td';
         if (n === 'SCO' || n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'scotia';
@@ -132,6 +142,7 @@
 
     function bankDisplayName(bankName, key) {
         var map = {
+            bmo: 'BMO',
             rbc: 'Royal Bank of Canada',
             td: 'TD Canada Trust',
             scotia: 'Scotiabank',
@@ -156,6 +167,8 @@
             );
         };
         switch (key) {
+            case 'bmo':
+                return rect('#007078', 'BMO');
             case 'td':
                 return rect('#53B700', 'TD');
             case 'rbc':
@@ -167,6 +180,29 @@
             default:
                 return rect('#007078', 'OB');
         }
+    }
+
+    function bankLogoFillContainer(container, brand, altText) {
+        if (!container) return;
+        container.innerHTML = '';
+        var url = BANK_LOGO_URLS[brand];
+        if (!url) {
+            container.innerHTML = bankLogoSvgHtml(brand);
+            return;
+        }
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = altText || '';
+        img.loading = 'lazy';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.display = 'block';
+        img.addEventListener('error', function onLogoErr() {
+            img.removeEventListener('error', onLogoErr);
+            container.innerHTML = bankLogoSvgHtml(brand);
+        });
+        container.appendChild(img);
     }
 
     function renderExternalConnections() {
@@ -241,7 +277,7 @@
         var logo = document.createElement('div');
         logo.className = 'external-detail-logo row-logo';
         logo.setAttribute('title', conn.bankDisplayName || conn.bankName || '');
-        logo.innerHTML = bankLogoSvgHtml(brand);
+        bankLogoFillContainer(logo, brand, conn.bankDisplayName || conn.bankName || '');
 
         var scopeWrap = document.createElement('div');
         scopeWrap.className = 'external-detail-scopes row-scopes';
