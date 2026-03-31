@@ -104,17 +104,41 @@ output application/java
                         </ee:transform>
                     </when>
                     <otherwise>
-                        <!-- Construct authorization URL -->
+                        <!-- Construct authorization URL; state is opaque UUID — consent metadata stored in OS before Auth0 -->
                         <ee:transform doc:name="Build Authorization URL" doc:id="build-auth-url">
                             <ee:message>
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/java
 import * from dw::core::URL
-var baseScopes = "openid profile email"
-var fdxScopes = (attributes.queryParams.access_types splitBy ",") map trim($) joinBy " "
-var allScopes = baseScopes ++ " " ++ fdxScopes
+fun bankBrandKey(b) = do {
+    var u = upper(b default "")
+    ---
+    if (contains(u, "RBC") or contains(u, "ROYAL")) "rbc"
+    else if (contains(u, "TD")) "td"
+    else if (contains(u, "SCOTIA") or contains(u, "SCO")) "scotia"
+    else if (contains(u, "CIBC") or contains(u, "CIB")) "cibc"
+    else "default"
+}
+fun bankDisplayName(b, k) =
+    if (k == "rbc") "Royal Bank of Canada"
+    else if (k == "td") "TD Canada Trust"
+    else if (k == "scotia") "Scotiabank"
+    else if (k == "cibc") "CIBC"
+    else b default "External bank"
+fun fdxHuman(code) =
+    if (upper(code) == "ACCOUNT_BASIC") "Account balances"
+    else if (upper(code) == "TRANSACTIONS") "Transactions"
+    else if (upper(code) == "CUSTOMER_CONTACT") "Contact details"
+    else code
 var bank = attributes.queryParams.bank default "Bank"
 var accessTypesParam = attributes.queryParams.access_types default ""
+var requestedTech = (accessTypesParam splitBy ",") map trim($)
+var brand = bankBrandKey(bank)
+var scopesHuman = requestedTech map fdxHuman($)
+var oauthState = uuid()
+var baseScopes = "openid profile email"
+var fdxScopes = requestedTech joinBy " "
+var allScopes = baseScopes ++ " " ++ fdxScopes
 var authParams = {
     response_type: "code",
     client_id: "${oauth.auth0.client_id}",
@@ -122,20 +146,34 @@ var authParams = {
     scope: allScopes,
     audience: "${oauth.auth0.audience}",
     prompt: "consent",
-    state: bank ++ "__OB__" ++ accessTypesParam ++ "__OB__" ++ uuid()
+    state: oauthState
 }
 var queryString = (authParams pluck ((value, key) -> "$(key)=" ++ encodeURIComponent(value as String))) joinBy "&"
 ---
 {
     authorizationUrl: "${oauth.auth0.authorize_endpoint}" ++ "?" ++ queryString,
-    state: authParams.state
+    state: oauthState,
+    pendingOsKey: "ob_oauth_pending__" ++ oauthState,
+    pendingConsent: {
+        bankName: bank,
+        bankDisplayName: bankDisplayName(bank, brand),
+        bankBrand: brand,
+        scopesTechnical: requestedTech,
+        scopesHuman: scopesHuman,
+        accessTypesCsv: accessTypesParam,
+        createdAt: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"}
+    }
 }]]></ee:set-payload>
                             </ee:message>
                         </ee:transform>
                         
+                        <os:store doc:name="Store pending consent metadata" doc:id="store-pending-consent" objectStore="oauth_object_store" key="#[payload.pendingOsKey]">
+                            <os:value><![CDATA[#[payload.pendingConsent]]]></os:value>
+                        </os:store>
+                        
                         <logger level="INFO" doc:name="Log Authorization URL" 
                                 doc:id="log-auth-url" 
-                                message="Built authorization URL: #[payload.authorizationUrl]. State: #[payload.state]. About to redirect with 302." 
+                                message="Built authorization URL: #[payload.authorizationUrl]. State: #[payload.state]. Pending consent stored at #[payload.pendingOsKey]." 
                                 category="OAuth.Redirect"/>
                         
                         <ee:transform doc:name="Set HTTP Redirect Response" doc:id="set-http-redirect-response">
@@ -277,7 +315,8 @@ output application/json
     access_token: payload.access_token,
     id_token: payload.id_token,
     token_type: payload.token_type default "Bearer",
-    expires_in: payload.expires_in
+    expires_in: payload.expires_in,
+    scope: payload.scope default ""
 }]]></ee:set-payload>
                             </ee:message>
                         </ee:transform>
@@ -287,18 +326,39 @@ output application/json
                                 message="Token exchange successful - Access token length: #[sizeOf(payload.access_token)], ID token present: #[!isEmpty(payload.id_token)]" 
                                 category="OAuth.Success"/>
                         
-                        <!-- Store tokens in flow variables (in-memory storage) -->
+                        <try doc:name="Load pending consent from object store" doc:id="load-pending-consent">
+                            <os:retrieve doc:name="Retrieve pending consent" doc:id="retrieve-pending-consent" objectStore="oauth_object_store" key="#['ob_oauth_pending__' ++ (attributes.queryParams.state default '')]" target="oauthPending" />
+                            <error-handler>
+                                <on-error-continue enableNotifications="false" logException="false" doc:name="No pending record" doc:id="no-pending-consent" type="ANY">
+                                    <set-variable value="#[null]" variableName="oauthPending" doc:name="Clear pending var" doc:id="clear-pending-var" />
+                                </on-error-continue>
+                            </error-handler>
+                        </try>
+                        
+                        <!-- Merge tokens + pre-Auth0 consent metadata + optional Auth0 scope string into one session document -->
                         <ee:transform doc:name="Prepare Token Storage" doc:id="prepare-token-storage">
                             <ee:message>
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+fun fdxHuman(code) =
+    if (upper(code as String) == "ACCOUNT_BASIC") "Account balances"
+    else if (upper(code as String) == "TRANSACTIONS") "Transactions"
+    else if (upper(code as String) == "CUSTOMER_CONTACT") "Contact details"
+    else code as String
 var currentTime = now()
 var sec = (payload.expires_in default 3600) as Number
 var expiresAt = currentTime + (("PT" ++ (sec as String) ++ "S") as Period)
-var stateRaw = attributes.queryParams.state default ""
-var parts = stateRaw splitBy "__OB__"
-var bankName = if (sizeOf(parts) > 0) parts[0] else ""
-var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
+var p = vars.oauthPending default {}
+var tokenScopeParts = (payload.scope default "") splitBy " " map trim($) filter (!isEmpty($))
+var fdxCodes = ["ACCOUNT_BASIC", "TRANSACTIONS", "CUSTOMER_CONTACT"]
+var tokenFdx = tokenScopeParts filter ((t) -> contains(fdxCodes, upper(t)))
+var techFromPending = p.scopesTechnical default []
+var mergedTech = (techFromPending ++ tokenFdx) distinctBy ((x) -> upper(x as String))
+var mergedHuman = mergedTech map fdxHuman($)
+var bankName = p.bankName default "External bank"
+var bankDisplayName = p.bankDisplayName default bankName
+var bankBrand = p.bankBrand default "default"
+var scopesCsv = mergedTech joinBy ","
 ---
 {
     access_token: payload.access_token,
@@ -309,7 +369,13 @@ var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
     stored_at: currentTime as String,
     session_id: "oauth_session_" ++ uuid(),
     bankName: bankName,
-    requested_scopes: scopesCsv
+    bankDisplayName: bankDisplayName,
+    bankBrand: bankBrand,
+    requested_scopes: scopesCsv,
+    scopes_technical: mergedTech,
+    scopes_human: mergedHuman,
+    oauth_grant_scope: payload.scope default "",
+    consent_created_at: p.createdAt default ""
 }]]></ee:set-payload>
                             </ee:message>
                         </ee:transform>
@@ -320,24 +386,30 @@ var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
                             <os:value><![CDATA[#[vars.oauthTokens]]]></os:value>
                         </os:store>
                         
+                        <try doc:name="Remove pending consent key" doc:id="remove-pending-consent">
+                            <os:remove doc:name="Delete pending consent" doc:id="delete-pending-consent" objectStore="oauth_object_store" key="#['ob_oauth_pending__' ++ (attributes.queryParams.state default '')]" />
+                            <error-handler>
+                                <on-error-continue enableNotifications="false" logException="false" doc:name="Ignore pending delete" doc:id="ignore-pending-delete" type="ANY" />
+                            </error-handler>
+                        </try>
+                        
                         <logger level="INFO" doc:name="Log Token Storage" 
                                 doc:id="log-token-storage" 
                                 message="OAuth tokens stored successfully in memory with session ID: #[payload.session_id], expires at: #[payload.expires_at]" 
                                 category="OAuth.TokenStorage"/>
                         
-                        <!-- Redirect to frontend success page -->
+                        <!-- Redirect to frontend success page (bank/scopes from merged session, not opaque state) -->
                         <ee:transform doc:name="Set Success Redirect" doc:id="set-success-redirect">
                             <ee:message>
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/java
 import * from dw::core::URL
-var stateRaw = attributes.queryParams.state default ""
-var parts = stateRaw splitBy "__OB__"
-var bankName = if (sizeOf(parts) > 0) parts[0] else "Bank"
-var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
+var s = vars.oauthTokens
+var bankName = s.bankName default "Bank"
+var scopesCsv = s.requested_scopes default ""
 ---
 {
-    redirectLocation: "${frontend.base_url}/?status=success&bank=" ++ encodeURIComponent(bankName) ++ "&scopes=" ++ encodeURIComponent(scopesCsv),
+    redirectLocation: "${frontend.base_url}/?status=success&bank=" ++ encodeURIComponent(bankName as String) ++ "&scopes=" ++ encodeURIComponent(scopesCsv as String),
     httpStatus: 302
 }]]></ee:set-payload>
                             </ee:message>
@@ -516,7 +588,11 @@ var looksLikeJwt = sizeOf(dotParts filter (!isEmpty($))) == 3
     expires_at: s.expires_at,
     session_id: s.session_id,
     bankName: s.bankName,
+    bankDisplayName: s.bankDisplayName default s.bankName,
+    bankBrand: s.bankBrand default "default",
     requested_scopes: s.requested_scopes,
+    scopes_technical: s.scopes_technical default [],
+    scopes_human: s.scopes_human default [],
     access_token_format: if (looksLikeJwt) "jwt" else "opaque"
 }]]></ee:set-payload>
                 </ee:message>

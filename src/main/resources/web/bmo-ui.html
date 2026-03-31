@@ -590,14 +590,7 @@
             outline-offset: 3px;
         }
 
-        .modal--external-detail { position: relative; max-width: 420px; }
-
-        .external-detail-intro {
-            font-size: 14px;
-            color: var(--text-muted);
-            line-height: 1.5;
-            margin-bottom: 16px;
-        }
+        .modal--external-detail { position: relative; max-width: 440px; }
 
         .modal-close-btn {
             position: absolute;
@@ -619,19 +612,23 @@
         }
         .modal-close-btn:active { transform: scale(0.96); }
 
-        .external-detail-hero {
+        .external-accounts-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-top: 8px;
+        }
+        .external-account-row {
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-            padding: 16px;
-            background: var(--bmo-cream);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
         }
-        .external-detail-logo {
-            width: 56px;
-            height: 56px;
+        .external-account-row:last-child { border-bottom: none; }
+        .external-account-row .row-logo {
+            width: 52px;
+            height: 52px;
             border-radius: 14px;
             flex-shrink: 0;
             display: flex;
@@ -639,46 +636,28 @@
             justify-content: center;
             overflow: hidden;
         }
-        .external-detail-logo svg { width: 100%; height: 100%; display: block; }
-        .external-detail-bank-name {
-            font-weight: 600;
-            font-size: 18px;
-            color: var(--text);
-            letter-spacing: -0.02em;
-        }
-        .external-detail-sub {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            margin-bottom: 0;
-        }
-        .external-detail-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-        }
-        .external-detail-scopes {
+        .external-account-row .row-logo svg { width: 100%; height: 100%; display: block; }
+        .external-account-row .row-scopes {
+            flex: 1;
+            min-width: 0;
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 8px;
-            margin-bottom: 14px;
         }
-        .external-detail-meta {
-            font-size: 12px;
-            color: var(--text-muted);
-            line-height: 1.45;
-            margin: 0;
+        .external-account-row .row-delete {
+            flex-shrink: 0;
+            min-height: 40px;
+            padding: 0 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #c65353;
+            background: var(--bmo-white);
+            color: #a32020;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
         }
-        .modal-actions-external {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 8px;
-        }
-        .modal-actions-external .btn-delete-connection { width: 100%; min-height: var(--tap-size); }
+        .external-account-row .row-delete:active { transform: scale(0.98); }
 
         .btn-delete-connection {
             flex-shrink: 0;
@@ -836,21 +815,8 @@
     <div class="modal-overlay" id="externalDetailModal" role="dialog" aria-modal="true" aria-labelledby="externalDetailTitle" aria-hidden="true">
         <div class="modal modal--external-detail">
             <button type="button" class="modal-close-btn" id="externalDetailCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
-            <h3 id="externalDetailTitle">External connection</h3>
-            <p class="external-detail-intro">Institution linked via OAuth. Scopes come from your authorization and, when the access token is a JWT, from token claims.</p>
-            <div class="external-detail-hero">
-                <div id="externalDetailLogo" class="external-detail-logo"></div>
-                <div>
-                    <div id="externalDetailBankName" class="external-detail-bank-name"></div>
-                    <p id="externalDetailSubtitle" class="external-detail-sub"></p>
-                </div>
-            </div>
-            <p class="external-detail-label">Authorized scopes</p>
-            <div id="externalDetailScopeTags" class="external-detail-scopes"></div>
-            <p id="externalDetailMeta" class="external-detail-meta"></p>
-            <div class="modal-actions-external">
-                <button type="button" class="btn-delete-connection" id="btnDisconnectExternalModal">Delete connection</button>
-            </div>
+            <h3 id="externalDetailTitle">Active external accounts</h3>
+            <div id="externalAccountsRows" class="external-accounts-rows"></div>
         </div>
     </div>
 

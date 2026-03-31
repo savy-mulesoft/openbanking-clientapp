@@ -3,6 +3,25 @@
 
     var LS_KEY = 'ob_external_connection_v1';
 
+    function coerceArray(v) {
+        if (v == null) return [];
+        if (Array.isArray(v)) return v;
+        return [v];
+    }
+
+    /** FDX consent scopes — human-readable (aligned with server /api/auth/connect mapping) */
+    function fdxHumanLabel(code) {
+        var c = String(code || '')
+            .trim()
+            .toUpperCase();
+        var map = {
+            ACCOUNT_BASIC: 'Account balances',
+            TRANSACTIONS: 'Transactions',
+            CUSTOMER_CONTACT: 'Contact details'
+        };
+        return map[c] || null;
+    }
+
     function decodeJwtPayload(token) {
         if (!token || typeof token !== 'string') return null;
         var parts = token.split('.');
@@ -54,14 +73,32 @@
     }
 
     function normalizeConnectionForSave(obj) {
-        var merged = mergeAllScopes(obj);
-        var scopes = merged.length ? merged : (obj.scopes || []);
+        var bankBrand = obj.bankBrand || bankBrandKey(obj.bankName);
+        var scopesTech = coerceArray(obj.scopesTechnical);
+        if (!scopesTech.length && obj.scopes && obj.scopes.length) {
+            scopesTech = obj.scopes.map(String);
+        }
+        var scopesHuman = coerceArray(obj.scopesHuman).map(String);
+        if (!scopesHuman.length && scopesTech.length) {
+            scopesHuman = scopesTech.map(function (t) {
+                return fdxHumanLabel(t) || t;
+            });
+        }
+        if (!scopesHuman.length) {
+            scopesHuman = mergeAllScopes(obj).map(function (c) {
+                return fdxHumanLabel(c) || c;
+            });
+        }
         return {
             accessToken: obj.accessToken,
             idToken: obj.idToken || null,
             tokenType: obj.tokenType || 'Bearer',
             bankName: obj.bankName || 'External bank',
-            scopes: scopes,
+            bankDisplayName: obj.bankDisplayName || bankDisplayName(obj.bankName, bankBrand),
+            bankBrand: bankBrand,
+            scopes: scopesTech.length ? scopesTech : obj.scopes || [],
+            scopesHuman: scopesHuman,
+            scopesTechnical: scopesTech,
             sessionId: obj.sessionId || null,
             connectedAt: obj.connectedAt || new Date().toISOString(),
             tokenShape: obj.tokenShape || null
@@ -182,81 +219,57 @@
     }
 
     function populateExternalDetailModal(conn) {
-        var brand = bankBrandKey(conn.bankName);
-        var displayName = bankDisplayName(conn.bankName, brand);
-        var accClaims = decodeJwtPayload(conn.accessToken);
-        var idClaims = decodeJwtPayload(conn.idToken);
-        var scopes = mergeAllScopes(conn);
+        var rows = document.getElementById('externalAccountsRows');
+        if (!rows) return;
+        rows.innerHTML = '';
 
-        var logoEl = document.getElementById('externalDetailLogo');
-        var nameEl = document.getElementById('externalDetailBankName');
-        var subEl = document.getElementById('externalDetailSubtitle');
-        var tagsEl = document.getElementById('externalDetailScopeTags');
-        var metaEl = document.getElementById('externalDetailMeta');
-
-        if (logoEl) logoEl.innerHTML = bankLogoSvgHtml(brand);
-        if (nameEl) nameEl.textContent = displayName;
-        if (subEl) {
-            subEl.textContent =
-                'Chosen at connect: ' + (conn.bankName || displayName) + ' · Linked ' + formatConnectedAt(conn.connectedAt);
+        var brand = conn.bankBrand || bankBrandKey(conn.bankName);
+        var tags = coerceArray(conn.scopesHuman).filter(Boolean);
+        if (!tags.length) {
+            var tech = coerceArray(conn.scopesTechnical);
+            if (!tech.length && conn.scopes) tech = coerceArray(conn.scopes);
+            tags = tech.map(function (t) {
+                return fdxHumanLabel(t) || String(t);
+            });
         }
 
-        if (tagsEl) {
-            tagsEl.innerHTML = '';
-            if (scopes.length === 0) {
-                var empty = document.createElement('span');
-                empty.className = 'scope-chip';
-                empty.textContent = 'No scopes listed';
-                tagsEl.appendChild(empty);
-            } else {
-                scopes.forEach(function (s) {
-                    var span = document.createElement('span');
-                    span.className = 'scope-chip';
-                    span.textContent = s;
-                    tagsEl.appendChild(span);
-                });
-            }
+        var row = document.createElement('div');
+        row.className = 'external-account-row';
+
+        var logo = document.createElement('div');
+        logo.className = 'external-detail-logo row-logo';
+        logo.setAttribute('title', conn.bankDisplayName || conn.bankName || '');
+        logo.innerHTML = bankLogoSvgHtml(brand);
+
+        var scopeWrap = document.createElement('div');
+        scopeWrap.className = 'external-detail-scopes row-scopes';
+        if (!tags.length) {
+            var empty = document.createElement('span');
+            empty.className = 'scope-chip';
+            empty.textContent = 'No scopes listed';
+            scopeWrap.appendChild(empty);
+        } else {
+            tags.forEach(function (label) {
+                var sp = document.createElement('span');
+                sp.className = 'scope-chip';
+                sp.textContent = label;
+                scopeWrap.appendChild(sp);
+            });
         }
 
-        if (metaEl) {
-            var lines = [];
-            var serverHint = conn.tokenShape;
-            if (accClaims) {
-                lines.push('Access token payload decoded in browser (POC only; do not ship secrets to production this way).');
-                if (serverHint) lines.push('Server hint: access_token_format=' + serverHint + '.');
-                if (accClaims.aud != null) {
-                    lines.push('Audience (aud): ' + formatClaimAud(accClaims.aud));
-                }
-                if (accClaims.azp) lines.push('Authorized party (azp): ' + accClaims.azp);
-                if (accClaims.scope && String(accClaims.scope).trim()) {
-                    lines.push('Scope claim on token: ' + accClaims.scope);
-                }
-            } else {
-                lines.push(
-                    'Could not parse access token as JWT (often opaque with Auth0 API access tokens). Scopes shown are from OAuth state and /api/oauth/session requested_scopes.'
-                );
-                if (serverHint) lines.push('Server hint: access_token_format=' + serverHint + '.');
-            }
-            if (idClaims) {
-                lines.push('ID token is a JWT (OpenID claims; not expanded here).');
-            }
-            metaEl.textContent = lines.join(' ');
-        }
-    }
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'row-delete';
+        del.textContent = 'Delete';
+        del.addEventListener('click', function (e) {
+            e.stopPropagation();
+            disconnectExternal();
+        });
 
-    function formatClaimAud(aud) {
-        if (Array.isArray(aud)) return aud.join(', ');
-        return String(aud);
-    }
-
-    function formatConnectedAt(iso) {
-        if (!iso) return '';
-        try {
-            var d = new Date(iso);
-            return d.toLocaleString();
-        } catch (e) {
-            return iso;
-        }
+        row.appendChild(logo);
+        row.appendChild(scopeWrap);
+        row.appendChild(del);
+        rows.appendChild(row);
     }
 
     function disconnectExternal() {
@@ -293,19 +306,27 @@
                     window.history.replaceState({}, '', '/');
                     return;
                 }
-                var fromServerScopes = (o.data.requested_scopes || '')
-                    .split(',')
-                    .map(function (s) {
-                        return s.trim();
-                    })
-                    .filter(Boolean);
-                var baseScopes = scopesFromUrl.length ? scopesFromUrl : fromServerScopes;
+                var tech = coerceArray(o.data.scopes_technical);
+                if (!tech.length) {
+                    tech = (o.data.requested_scopes || '')
+                        .split(',')
+                        .map(function (s) {
+                            return s.trim();
+                        })
+                        .filter(Boolean);
+                }
+                if (!tech.length) tech = scopesFromUrl;
+                var human = coerceArray(o.data.scopes_human);
                 saveConnection({
                     accessToken: o.data.access_token,
                     idToken: o.data.id_token || null,
                     tokenType: o.data.token_type || 'Bearer',
                     bankName: bankFromUrl || o.data.bankName || 'External bank',
-                    scopes: baseScopes,
+                    bankDisplayName: o.data.bankDisplayName || null,
+                    bankBrand: o.data.bankBrand || null,
+                    scopes: tech,
+                    scopesTechnical: tech,
+                    scopesHuman: human,
                     sessionId: o.data.session_id || null,
                     connectedAt: new Date().toISOString(),
                     tokenShape: o.data.access_token_format || null
@@ -328,18 +349,25 @@
             })
             .then(function (data) {
                 if (!data || !data.access_token) return;
-                var scopes = (data.requested_scopes || '')
-                    .split(',')
-                    .map(function (s) {
-                        return s.trim();
-                    })
-                    .filter(Boolean);
+                var tech = coerceArray(data.scopes_technical);
+                if (!tech.length) {
+                    tech = (data.requested_scopes || '')
+                        .split(',')
+                        .map(function (s) {
+                            return s.trim();
+                        })
+                        .filter(Boolean);
+                }
                 saveConnection({
                     accessToken: data.access_token,
                     idToken: data.id_token || null,
                     tokenType: data.token_type || 'Bearer',
                     bankName: data.bankName || 'External bank',
-                    scopes: scopes,
+                    bankDisplayName: data.bankDisplayName || null,
+                    bankBrand: data.bankBrand || null,
+                    scopes: tech,
+                    scopesTechnical: tech,
+                    scopesHuman: coerceArray(data.scopes_human),
                     sessionId: data.session_id || null,
                     connectedAt: new Date().toISOString(),
                     tokenShape: data.access_token_format || null
@@ -519,13 +547,6 @@
             });
         }
 
-        var btn = document.getElementById('btnDisconnectExternalModal');
-        if (btn) {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                disconnectExternal();
-            });
-        }
     }
 
     if (document.readyState === 'loading') {
