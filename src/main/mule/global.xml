@@ -23,5 +23,7 @@ http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/cu
 	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="HTTP_Request_configuration">
 		<http:request-connection />
 	</http:request-config>
+
+	<os:object-store name="oauth_object_store" doc:name="OAuth persistent store" persistent="true" />
 	
 </mule>

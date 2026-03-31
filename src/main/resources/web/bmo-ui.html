@@ -583,6 +583,82 @@
             .app-main .overview,
             .app-main .card { animation: none; }
         }
+
+        .card--interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .card--interactive:focus-visible {
+            outline: 2px solid var(--bmo-teal);
+            outline-offset: 3px;
+        }
+
+        .external-connection-panel {
+            margin-top: 16px;
+            padding: 18px 16px;
+            background: var(--bmo-white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+        .external-connection-panel[hidden] { display: none !important; }
+
+        .external-connection-panel__header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .external-connection-panel__bank {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+        .external-connection-panel__logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--bmo-teal);
+            color: var(--bmo-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .external-connection-panel__name { font-weight: 600; font-size: 16px; color: var(--text); }
+        .external-connection-panel__hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        .btn-delete-connection {
+            flex-shrink: 0;
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #c65353;
+            background: var(--bmo-white);
+            color: #a32020;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-delete-connection:active { transform: scale(0.98); }
+
+        .scope-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .scope-chip {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(0, 112, 120, 0.12);
+            color: var(--bmo-teal-dark);
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -610,13 +686,27 @@
                         <div class="card">
                             <div class="card-label">Cash</div>
                             <div class="card-value" id="totalBalance">—</div>
-                            <div class="card-description">Connect a bank to populate</div>
+                            <div class="card-description" id="cashCardDesc">Connect a bank to populate</div>
                         </div>
-                        <div class="card">
+                        <div class="card" id="externalConnectionsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="externalConnectionPanel">
                             <div class="card-label">External accounts</div>
                             <div class="card-value" id="accountCount">0</div>
-                            <div class="card-description">No connections yet</div>
+                            <div class="card-description" id="externalCardDesc">No connections yet</div>
                         </div>
+                    </div>
+
+                    <div class="external-connection-panel" id="externalConnectionPanel" hidden>
+                        <div class="external-connection-panel__header">
+                            <div class="external-connection-panel__bank">
+                                <div class="external-connection-panel__logo" id="detailBankLogo">—</div>
+                                <div>
+                                    <div class="external-connection-panel__name" id="detailBankName">—</div>
+                                    <p class="external-connection-panel__hint">Authorized scopes</p>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-delete-connection" id="btnDisconnectConnection">Delete</button>
+                        </div>
+                        <ul class="scope-list" id="detailScopesList"></ul>
                     </div>
 
                     <div class="api-section">
@@ -717,16 +807,153 @@
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
     <script>
+        var LS_KEY = 'ob_external_connection_v1';
+
+        function getStoredConnection() {
+            try {
+                var raw = localStorage.getItem(LS_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveConnection(conn) {
+            localStorage.setItem(LS_KEY, JSON.stringify(conn));
+        }
+
+        function bankLogoLabel(bankName) {
+            var n = (bankName || '').toUpperCase();
+            if (n.indexOf('RBC') !== -1 || n.indexOf('ROYAL') !== -1) return 'RBC';
+            if (n.indexOf('TD') !== -1) return 'TD';
+            if (n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'SCO';
+            if (n.indexOf('CIBC') !== -1 || n.indexOf('CIB') !== -1) return 'CIB';
+            return (bankName || 'BANK').slice(0, 3).toUpperCase();
+        }
+
+        function renderExternalConnections() {
+            var conn = getStoredConnection();
+            var countEl = document.getElementById('accountCount');
+            var descEl = document.getElementById('externalCardDesc');
+            var card = document.getElementById('externalConnectionsCard');
+            var panel = document.getElementById('externalConnectionPanel');
+
+            if (!countEl || !descEl || !card || !panel) return;
+
+            var n = conn ? 1 : 0;
+            countEl.textContent = String(n);
+            descEl.textContent = n ? '1 active connection' : 'No connections yet';
+            card.classList.toggle('card--interactive', n > 0);
+            card.setAttribute('aria-expanded', n ? 'false' : 'false');
+
+            if (!conn) {
+                panel.hidden = true;
+                return;
+            }
+
+            document.getElementById('detailBankLogo').textContent = bankLogoLabel(conn.bankName);
+            document.getElementById('detailBankName').textContent = conn.bankName || 'External bank';
+            var ul = document.getElementById('detailScopesList');
+            ul.innerHTML = '';
+            (conn.scopes || []).forEach(function (s) {
+                var li = document.createElement('li');
+                li.className = 'scope-chip';
+                li.textContent = s;
+                ul.appendChild(li);
+            });
+        }
+
+        function toggleExternalPanel() {
+            var conn = getStoredConnection();
+            if (!conn) return;
+            var panel = document.getElementById('externalConnectionPanel');
+            var card = document.getElementById('externalConnectionsCard');
+            var open = panel.hidden;
+            panel.hidden = !open;
+            card.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        async function disconnectExternal() {
+            localStorage.removeItem(LS_KEY);
+            try {
+                await fetch('/api/oauth/disconnect', { method: 'POST' });
+            } catch (e) { /* ignore */ }
+            document.getElementById('externalConnectionPanel').hidden = true;
+            document.getElementById('externalConnectionsCard').setAttribute('aria-expanded', 'false');
+            renderExternalConnections();
+            showNotification('Connection removed. Connect again to link your bank.', 'success');
+        }
+
+        async function handleOAuthReturn() {
+            var params = new URLSearchParams(window.location.search);
+            var status = params.get('status');
+            if (status === 'error') {
+                var err = params.get('error') || 'unknown';
+                showNotification('Connection failed: ' + err, 'warn');
+                window.history.replaceState({}, '', '/');
+                return;
+            }
+            if (status !== 'success') return;
+
+            var bankFromUrl = params.get('bank') || '';
+            var scopesFromUrl = (params.get('scopes') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+            try {
+                var res = await fetch('/api/oauth/session');
+                var data = await res.json();
+                if (!res.ok || !data.access_token) {
+                    showNotification('Could not read session from server. Try Connect again.', 'warn');
+                    window.history.replaceState({}, '', '/');
+                    return;
+                }
+                var scopes = scopesFromUrl.length ? scopesFromUrl : (data.requested_scopes || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                saveConnection({
+                    accessToken: data.access_token,
+                    idToken: data.id_token || null,
+                    tokenType: data.token_type || 'Bearer',
+                    bankName: bankFromUrl || data.bankName || 'External bank',
+                    scopes: scopes,
+                    sessionId: data.session_id || null,
+                    connectedAt: new Date().toISOString()
+                });
+                showNotification('Bank connected successfully.', 'success');
+            } catch (e) {
+                showNotification('Could not complete connection: ' + e.message, 'warn');
+            }
+            window.history.replaceState({}, '', '/');
+        }
+
+        async function tryHydrateConnectionFromServer() {
+            if (getStoredConnection()) return;
+            try {
+                var res = await fetch('/api/oauth/session');
+                if (!res.ok) return;
+                var data = await res.json();
+                if (!data.access_token) return;
+                var scopes = (data.requested_scopes || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                saveConnection({
+                    accessToken: data.access_token,
+                    idToken: data.id_token || null,
+                    tokenType: data.token_type || 'Bearer',
+                    bankName: data.bankName || 'External bank',
+                    scopes: scopes,
+                    sessionId: data.session_id || null,
+                    connectedAt: new Date().toISOString()
+                });
+            } catch (e) { /* ignore */ }
+        }
+
         async function testEndpoint(endpoint, type) {
-            const loadingEl = document.getElementById(type + '-loading');
-            const resultsEl = document.getElementById(type + '-results');
+            var loadingEl = document.getElementById(type + '-loading');
+            var resultsEl = document.getElementById(type + '-results');
 
             loadingEl.style.display = 'block';
             resultsEl.style.display = 'none';
 
             try {
-                const response = await fetch(endpoint);
-                const data = await response.json();
+                var response = await fetch(endpoint);
+                var data = await response.json();
 
                 resultsEl.textContent = JSON.stringify(data, null, 2);
                 resultsEl.style.display = 'block';
@@ -743,15 +970,15 @@
         }
 
         function updateOverview(accountsData) {
-            if (accountsData && accountsData.accounts) {
-                const accounts = accountsData.accounts;
-                const totalBalance = accounts.reduce(function (sum, acc) { return sum + acc.balance; }, 0);
+            var cashDesc = document.getElementById('cashCardDesc');
+            if (accountsData &amp;&amp; accountsData.accounts) {
+                var accounts = accountsData.accounts;
+                var totalBalance = accounts.reduce(function (sum, acc) { return sum + acc.balance; }, 0);
 
                 document.getElementById('totalBalance').textContent = '$' + totalBalance.toLocaleString('en-CA') + ' CAD';
-                document.getElementById('accountCount').textContent = accounts.length;
-
-                document.querySelectorAll('.card-description')[0].textContent = 'Total across ' + accounts.length + ' accounts';
-                document.querySelectorAll('.card-description')[1].textContent = accounts.length + ' active connections';
+                if (cashDesc) {
+                    cashDesc.textContent = 'Total across ' + accounts.length + ' BMO demo accounts';
+                }
             }
         }
 
@@ -791,21 +1018,14 @@
             setTimeout(function () {
                 statusIcon.innerHTML = '🔐';
                 statusTitle.textContent = 'Authenticating';
-                statusMessage.textContent = 'Redirecting to ' + bankName + ' login…';
+                statusMessage.textContent = 'Redirecting to ' + bankName + ' OAuth flow…';
+
+                var oauthUrl = '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&amp;access_types=ACCOUNT_BASIC,TRANSACTIONS';
 
                 setTimeout(function () {
-                    statusIcon.innerHTML = '✓';
-                    statusIcon.className = 'status-icon status-success';
-                    statusTitle.textContent = 'Connected!';
-                    statusMessage.textContent = 'Successfully connected to ' + bankName + '. Loading your accounts…';
-
-                    setTimeout(function () {
-                        closeConnectionModal();
-                        loadAccountData();
-                        showNotification('Successfully connected to ' + bankName + '!', 'success');
-                    }, 2000);
-                }, 1500);
-            }, 1500);
+                    window.location.href = oauthUrl;
+                }, 1000);
+            }, 1000);
         }
 
         function showNotification(message, type) {
@@ -832,7 +1052,24 @@
             }
         });
 
-        window.addEventListener('load', function () {
+        document.getElementById('externalConnectionsCard').addEventListener('click', function () {
+            toggleExternalPanel();
+        });
+        document.getElementById('externalConnectionsCard').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleExternalPanel();
+            }
+        });
+        document.getElementById('btnDisconnectConnection').addEventListener('click', function (e) {
+            e.stopPropagation();
+            disconnectExternal();
+        });
+
+        window.addEventListener('load', async function () {
+            await handleOAuthReturn();
+            await tryHydrateConnectionFromServer();
+            renderExternalConnections();
             setTimeout(loadAccountData, 500);
         });
     </script>

@@ -113,6 +113,8 @@ import * from dw::core::URL
 var baseScopes = "openid profile email"
 var fdxScopes = (attributes.queryParams.access_types splitBy ",") map trim($) joinBy " "
 var allScopes = baseScopes ++ " " ++ fdxScopes
+var bank = attributes.queryParams.bank default "Bank"
+var accessTypesParam = attributes.queryParams.access_types default ""
 var authParams = {
     response_type: "code",
     client_id: "${oauth.auth0.client_id}",
@@ -120,7 +122,7 @@ var authParams = {
     scope: allScopes,
     audience: "${oauth.auth0.audience}",
     prompt: "consent",
-    state: uuid()
+    state: bank ++ "__OB__" ++ accessTypesParam ++ "__OB__" ++ uuid()
 }
 var queryString = (authParams pluck ((value, key) -> "$(key)=" ++ encodeURIComponent(value as String))) joinBy "&"
 ---
@@ -291,7 +293,12 @@ output application/json
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 var currentTime = now()
-var expiresAt = currentTime + ((payload.expires_in default 3600) as Number) * 1000 // Convert seconds to milliseconds
+var sec = (payload.expires_in default 3600) as Number
+var expiresAt = currentTime + (("PT" ++ (sec as String) ++ "S") as Period)
+var stateRaw = attributes.queryParams.state default ""
+var parts = stateRaw splitBy "__OB__"
+var bankName = if (sizeOf(parts) > 0) parts[0] else ""
+var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
 ---
 {
     access_token: payload.access_token,
@@ -300,12 +307,18 @@ var expiresAt = currentTime + ((payload.expires_in default 3600) as Number) * 10
     expires_in: payload.expires_in,
     expires_at: expiresAt as String,
     stored_at: currentTime as String,
-    session_id: "oauth_session_" ++ uuid()
+    session_id: "oauth_session_" ++ uuid(),
+    bankName: bankName,
+    requested_scopes: scopesCsv
 }]]></ee:set-payload>
                             </ee:message>
                         </ee:transform>
                         
                         <set-variable value="#[payload]" variableName="oauthTokens" doc:name="Store OAuth Tokens in Memory" doc:id="store-oauth-tokens-memory"/>
+                        
+                        <os:store doc:name="Persist OAuth session" doc:id="persist-oauth-os" objectStore="oauth_object_store" key="ob_oauth_session">
+                            <os:value><![CDATA[#[vars.oauthTokens]]]></os:value>
+                        </os:store>
                         
                         <logger level="INFO" doc:name="Log Token Storage" 
                                 doc:id="log-token-storage" 
@@ -317,9 +330,14 @@ var expiresAt = currentTime + ((payload.expires_in default 3600) as Number) * 10
                             <ee:message>
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/java
+import * from dw::core::URL
+var stateRaw = attributes.queryParams.state default ""
+var parts = stateRaw splitBy "__OB__"
+var bankName = if (sizeOf(parts) > 0) parts[0] else "Bank"
+var scopesCsv = if (sizeOf(parts) > 1) parts[1] else ""
 ---
 {
-    redirectLocation: "${frontend.base_url}" ++ "${frontend.success_redirect_path}",
+    redirectLocation: "${frontend.base_url}/?status=success&bank=" ++ encodeURIComponent(bankName) ++ "&scopes=" ++ encodeURIComponent(scopesCsv),
     httpStatus: 302
 }]]></ee:set-payload>
                             </ee:message>
@@ -378,8 +396,18 @@ output application/java
     <sub-flow name="get-oauth-tokens-subflow" doc:id="get-oauth-tokens-subflow">
         <logger level="DEBUG" doc:name="Log Token Retrieval Request" 
                 doc:id="log-token-retrieval" 
-                message="Attempting to retrieve stored OAuth tokens from memory" 
+                message="Attempting to retrieve stored OAuth tokens from object store" 
                 category="OAuth.TokenRetrieval"/>
+        
+        <try doc:name="Hydrate OAuth from object store" doc:id="hydrate-oauth-os">
+            <os:retrieve doc:name="Retrieve OAuth session" doc:id="retrieve-oauth-os" objectStore="oauth_object_store" key="ob_oauth_session" target="oauthTokensRecovered" />
+            <set-variable value="#[vars.oauthTokensRecovered]" variableName="oauthTokens" doc:name="Apply stored tokens to event" doc:id="apply-stored-oauth" />
+            <error-handler>
+                <on-error-continue enableNotifications="false" logException="false" doc:name="No session in store" doc:id="no-oauth-in-store" type="ANY">
+                    <logger level="DEBUG" doc:name="OAuth store miss" doc:id="oauth-store-miss" message="No OAuth session in object store (or retrieve error): #[error.errorType]" category="OAuth.TokenRetrieval" />
+                </on-error-continue>
+            </error-handler>
+        </try>
         
         <choice doc:name="Check Token Availability" doc:id="check-token-availability">
             <when expression="#[vars.oauthTokens != null]">
@@ -466,5 +494,74 @@ output application/json
                 </ee:transform>
             </otherwise>
         </choice>
+    </sub-flow>
+
+    <!-- Expose OAuth session to UI (after redirect); browser saves to localStorage -->
+    <sub-flow name="oauth-session-api-subflow" doc:id="oauth-session-api-subflow">
+        <try doc:name="Read session for API" doc:id="read-session-api">
+            <os:retrieve doc:name="Retrieve session" doc:id="retrieve-for-session-api" objectStore="oauth_object_store" key="ob_oauth_session" target="sess" />
+            <ee:transform doc:name="Session response body" doc:id="session-response-body">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var s = vars.sess
+---
+{
+    access_token: s.access_token,
+    id_token: s.id_token,
+    token_type: s.token_type default "Bearer",
+    expires_at: s.expires_at,
+    session_id: s.session_id,
+    bankName: s.bankName,
+    requested_scopes: s.requested_scopes
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+            <error-handler>
+                <on-error-continue enableNotifications="true" logException="true" doc:name="No OAuth session" doc:id="no-session-api" type="ANY">
+                    <ee:transform doc:name="Session not found response" doc:id="session-not-found">
+                        <ee:message>
+                            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "error": "no_session",
+    "error_description": "No OAuth session on server. Connect your bank or clear completed flow."
+}]]></ee:set-payload>
+                        </ee:message>
+                        <ee:variables>
+                            <ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+
+    <sub-flow name="oauth-disconnect-api-subflow" doc:id="oauth-disconnect-api-subflow">
+        <try doc:name="Remove OAuth session" doc:id="remove-oauth-disconnect">
+            <os:remove doc:name="Remove OAuth key" doc:id="remove-oauth-key" objectStore="oauth_object_store" key="ob_oauth_session" />
+            <error-handler>
+                <on-error-continue enableNotifications="false" logException="false" doc:name="Idempotent remove" doc:id="idempotent-oauth-remove" type="ANY" />
+            </error-handler>
+        </try>
+        <ee:transform doc:name="Disconnect OK" doc:id="disconnect-ok">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "status": "success",
+    "message": "External bank connection removed. You can connect again anytime.",
+    "timestamp": now()
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
     </sub-flow>
 </mule>

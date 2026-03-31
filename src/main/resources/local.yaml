@@ -9,10 +9,10 @@ oauth:
     audience: "urn:fdx:tdbank"
     redirect_uri: "http://localhost:8081/callback"
 
-# Frontend redirect configuration
+# Frontend redirect configuration (success URL is built in oauth-callback-flow from OAuth state)
 frontend:
   base_url: "http://localhost:8081"
-  success_redirect_path: "/?status=success&bank=TD%20Bank&scopes=ACCOUNT_BASIC,TRANSACTIONS,CUSTOMER_CONTACT"
+  success_redirect_path: "/"
   error_redirect_path: "/?status=error"
 
 # FDX Scope validation

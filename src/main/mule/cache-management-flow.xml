@@ -4,10 +4,12 @@
       xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
       xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
       xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
 
 	<!-- Clear Cache Flow - Fresh Start -->
 	<flow name="clear-cache-flow" doc:id="clear-cache-flow">
@@ -22,6 +24,12 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 			<set-variable value="#[{}]" doc:name="Clear User Tokens" doc:id="clear-user-tokens" variableName="userTokenCache"/>
 			<set-variable value="#[{}]" doc:name="Clear User Data" doc:id="clear-user-data" variableName="userDataCache"/>
 			<set-variable value="#[{}]" doc:name="Clear User Scopes" doc:id="clear-user-scopes" variableName="userScopesCache"/>
+			<try doc:name="Clear OAuth object store" doc:id="clear-oauth-os">
+				<os:remove doc:name="Remove OAuth session" doc:id="remove-oauth-os" objectStore="oauth_object_store" key="ob_oauth_session" />
+				<error-handler>
+					<on-error-continue enableNotifications="false" logException="false" doc:name="Ignore missing OAuth key" doc:id="ignore-oauth-remove" type="ANY" />
+				</error-handler>
+			</try>
 			
 			<ee:transform doc:name="Success Response" doc:id="success-clear-response">
 				<ee:message>

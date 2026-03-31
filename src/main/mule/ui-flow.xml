@@ -21,7 +21,9 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 
 	<!-- BMO Client API Flow - Handles API requests from the UI -->
 	<flow name="bmo-client-api-flow" doc:name="bmo-client-api-flow">
-		<http:listener doc:name="BMO API Listener" config-ref="HTTP_Listener_config" path="/api/*" allowedMethods="GET,POST,PUT,DELETE"/>
+		<http:listener doc:name="BMO API Listener" config-ref="HTTP_Listener_config" path="/api/*" allowedMethods="GET,POST,PUT,DELETE">
+			<http:response statusCode="#[vars.httpStatus default 200]" />
+		</http:listener>
 		<logger level="INFO" doc:name="Log API Request" message="BMO API request: #[attributes.method] #[attributes.requestPath]"/>
 		<choice doc:name="Route API Requests">
 			<when expression="#[attributes.requestPath == '/api/accounts']">
@@ -32,6 +34,12 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 			</when>
 			<when expression="#[attributes.requestPath == '/api/balance']">
 				<flow-ref doc:name="Get Balance" name="get-balance-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/oauth/session' and upper(attributes.method) == 'GET']">
+				<flow-ref doc:name="OAuth session for UI" name="oauth-session-api-subflow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/oauth/disconnect' and upper(attributes.method) == 'POST']">
+				<flow-ref doc:name="OAuth disconnect" name="oauth-disconnect-api-subflow"/>
 			</when>
 			<otherwise>
 				<ee:transform doc:name="API Not Found">
