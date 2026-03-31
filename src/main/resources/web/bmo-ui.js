@@ -544,20 +544,24 @@
 
     function wireDom() {
         var qlToggle = document.getElementById('quickLinksToggle');
-        var qlPanel = document.getElementById('quickLinksPanel');
+        var qlDropdown = document.getElementById('quickLinksDropdown');
+        var qlConnectBtn = document.getElementById('quickLinksConnectBtn');
         var userBtn = document.getElementById('userMenuBtn');
         var userDropdown = document.getElementById('userMenuDropdown');
         var notifBtn = document.getElementById('notifBtn');
+        var notifDropdown = document.getElementById('notifDropdown');
+        var notifItem1 = document.getElementById('notifItem1');
 
-        function setQuickLinksOpen(open) {
-            if (!qlToggle || !qlPanel) return;
-            qlToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            qlPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
-            qlPanel.classList.toggle('is-open', open);
+        function closeQuickLinksDropdown() {
+            if (!qlToggle || !qlDropdown) return;
+            qlToggle.setAttribute('aria-expanded', 'false');
+            qlDropdown.hidden = true;
         }
 
-        function closeQuickLinks() {
-            setQuickLinksOpen(false);
+        function closeNotifDropdown() {
+            if (!notifBtn || !notifDropdown) return;
+            notifBtn.setAttribute('aria-expanded', 'false');
+            notifDropdown.hidden = true;
         }
 
         function closeUserMenu() {
@@ -566,23 +570,72 @@
             userDropdown.hidden = true;
         }
 
+        function closeAllHeaderDropdowns() {
+            closeUserMenu();
+            closeQuickLinksDropdown();
+            closeNotifDropdown();
+        }
+
+        function toggleQuickLinksDropdown() {
+            if (!qlToggle || !qlDropdown) return;
+            var open = qlDropdown.hidden;
+            closeUserMenu();
+            closeNotifDropdown();
+            qlToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            qlDropdown.hidden = !open;
+        }
+
+        function toggleNotifDropdown() {
+            if (!notifBtn || !notifDropdown) return;
+            var open = notifDropdown.hidden;
+            closeUserMenu();
+            closeQuickLinksDropdown();
+            notifBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            notifDropdown.hidden = !open;
+        }
+
         function toggleUserMenu() {
             if (!userBtn || !userDropdown) return;
             var open = userDropdown.hidden;
-            closeQuickLinks();
+            closeQuickLinksDropdown();
+            closeNotifDropdown();
             userBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
             userDropdown.hidden = !open;
         }
 
-        if (qlToggle && qlPanel) {
+        if (qlToggle && qlDropdown) {
             qlToggle.addEventListener('click', function (e) {
                 e.stopPropagation();
-                closeUserMenu();
-                var next = !qlPanel.classList.contains('is-open');
-                setQuickLinksOpen(next);
+                toggleQuickLinksDropdown();
             });
-            qlPanel.addEventListener('click', function (e) {
+            qlDropdown.addEventListener('click', function (e) {
                 e.stopPropagation();
+            });
+        }
+
+        if (qlConnectBtn) {
+            qlConnectBtn.addEventListener('click', function () {
+                closeQuickLinksDropdown();
+                if (typeof window.openConnectionModal === 'function') {
+                    window.openConnectionModal();
+                }
+            });
+        }
+
+        if (notifBtn && notifDropdown) {
+            notifBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleNotifDropdown();
+            });
+            notifDropdown.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+        }
+
+        if (notifItem1) {
+            notifItem1.addEventListener('click', function () {
+                showNotification('Sandbox: external bank OAuth is available to try in this demo.', 'warn');
+                closeNotifDropdown();
             });
         }
 
@@ -609,23 +662,13 @@
             });
         }
 
-        if (notifBtn) {
-            notifBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                closeUserMenu();
-                showNotification('You have 1 notification (demo inbox).', 'warn');
-            });
-        }
-
         document.addEventListener('click', function () {
-            closeUserMenu();
-            closeQuickLinks();
+            closeAllHeaderDropdowns();
         });
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                closeUserMenu();
-                closeQuickLinks();
+                closeAllHeaderDropdowns();
             }
         });
 
