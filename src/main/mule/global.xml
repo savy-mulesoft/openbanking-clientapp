@@ -10,7 +10,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
 
 	<global-property name="http.host" value="localhost" doc:name="http.host" />
-	<global-property name="http.port" value="8081" doc:name="http.port" />
+	<global-property name="http.port" value="${http.host}" doc:name="http.port" />
 	
 	<configuration-properties file="application.properties" doc:name="Configuration properties" doc:id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
 	<configuration-properties file="local.yaml" doc:name="Local YAML Configuration" doc:id="local-yaml-config" />

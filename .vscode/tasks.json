@@ -1,72 +1,75 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Maven: Clean",
-            "type": "shell",
-            "command": "mvn",
-            "args": ["clean"],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "Maven: Compile",
-            "type": "shell",
-            "command": "mvn",
-            "args": ["compile"],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "Maven: Package",
-            "type": "shell",
-            "command": "mvn",
-            "args": ["clean", "package"],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "Mule: Deploy Local",
-            "type": "shell",
-            "command": "mvn",
-            "args": ["clean", "package", "mule:deploy", "-DmuleDeploy"],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "dedicated"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Mule Application (Isolated)",
+      "type": "shell",
+      "command": "mvn",
+      "args": [
+        "mule:run",
+        "-Dmule.debug.port=6668",
+        "-Dmule.jmx.port=9998",
+        "-Dmule.runtime.location=${workspaceFolder}/.mule"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Debug Mule Application (Isolated)",
+      "type": "shell",
+      "command": "mvn",
+      "args": [
+        "mule:run",
+        "-Dmule.debug.port=6668",
+        "-Dmule.jmx.port=9998",
+        "-Dmule.runtime.location=${workspaceFolder}/.mule",
+        "-Dmule.debug.enable=true"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Maven: Clean & Package",
+      "type": "shell",
+      "command": "mvn",
+      "args": [
+        "clean",
+        "package"
+      ],
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
 }

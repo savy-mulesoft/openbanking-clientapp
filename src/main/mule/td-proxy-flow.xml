@@ -12,12 +12,15 @@ http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/cu
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
     <!--
-        TD Resource Server Proxy
-        =========================
+        TD Resource Server Proxy (FDX-compliant paths)
+        ================================================
         The BMO client app acts as a confidential client: the browser never talks to the TD resource
         server directly. Instead, the browser calls BMO at /api/td/*, and BMO retrieves the stored
         access_token from the Object Store and forwards it as Authorization: Bearer to the TD app
-        running on localhost:8082.
+        running on localhost:8082 using FDX-standard paths (/fdx/v6/accounts, etc.).
+
+        The BMO proxy paths use /api/td/* for the browser-facing API, while the TD resource server
+        exposes the FDX-standard /fdx/v6/* paths — exactly as it would in production.
     -->
 
     <!-- Shared sub-flow: retrieve access_token from Object Store and set it as a variable -->
@@ -37,8 +40,7 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
     </sub-flow>
 
     <!--
-        GET /api/td/accounts  →  forward to TD resource server
-        Requires a valid OAuth session in Object Store.
+        GET /api/td/accounts  →  forward to TD at /fdx/v6/accounts
     -->
     <flow name="td-proxy-accounts-flow" doc:id="td-proxy-accounts-flow">
         <http:listener doc:name="GET /api/td/accounts" doc:id="proxy-accounts-listener"
@@ -71,14 +73,14 @@ output application/json
                 </ee:transform>
             </when>
             <otherwise>
-                <logger level="INFO" doc:name="Proxying to TD accounts"
-                        message='#["Proxying GET /api/td/accounts to TD resource server with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                <logger level="INFO" doc:name="Proxying to TD /fdx/v6/accounts"
+                        message='#["Proxying GET /api/td/accounts → /fdx/v6/accounts with token length: " ++ sizeOf(vars.tdAccessToken)]'
                         category="TD.Proxy" />
 
                 <try doc:name="Forward to TD" doc:id="forward-td-accounts">
-                    <http:request method="GET" doc:name="Call TD /api/td/accounts"
+                    <http:request method="GET" doc:name="Call TD /fdx/v6/accounts"
                                   config-ref="HTTP_Request_configuration"
-                                  url="http://localhost:8082/api/td/accounts">
+                                  url="http://localhost:8082/fdx/v6/accounts">
                         <http:headers><![CDATA[#[{
                             "Authorization": "Bearer " ++ vars.tdAccessToken,
                             "Accept": "application/json",
@@ -112,13 +114,12 @@ output application/json
     </flow>
 
     <!--
-        GET /api/td/transactions  →  forward to TD resource server
-        Requires a valid OAuth session in Object Store.
+        GET /api/td/accounts/{accountId}/transactions  →  forward to TD at /fdx/v6/accounts/{accountId}/transactions
     -->
     <flow name="td-proxy-transactions-flow" doc:id="td-proxy-transactions-flow">
-        <http:listener doc:name="GET /api/td/transactions" doc:id="proxy-txn-listener"
+        <http:listener doc:name="GET /api/td/accounts/*/transactions" doc:id="proxy-txn-listener"
                        config-ref="HTTP_Listener_config"
-                       path="/api/td/transactions"
+                       path="/api/td/accounts/*/transactions"
                        allowedMethods="GET">
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.responseHeaders default {"Content-Type": "application/json"}]]]></http:headers>
@@ -127,6 +128,10 @@ output application/json
                 <http:headers><![CDATA[#[{"Content-Type": "application/json"}]]]></http:headers>
             </http:error-response>
         </http:listener>
+
+        <!-- Extract accountId from the browser-facing path -->
+        <set-variable value="#[attributes.requestPath replace '/api/td/accounts/' with '' replace '/transactions' with '']"
+                      variableName="accountId" doc:name="Extract accountId from path" />
 
         <flow-ref doc:name="Load TD access token" name="load-td-access-token-subflow" />
 
@@ -146,14 +151,14 @@ output application/json
                 </ee:transform>
             </when>
             <otherwise>
-                <logger level="INFO" doc:name="Proxying to TD transactions"
-                        message='#["Proxying GET /api/td/transactions to TD resource server with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                <logger level="INFO" doc:name="Proxying to TD /fdx/v6/accounts/*/transactions"
+                        message='#["Proxying GET → /fdx/v6/accounts/" ++ vars.accountId ++ "/transactions with token length: " ++ sizeOf(vars.tdAccessToken)]'
                         category="TD.Proxy" />
 
                 <try doc:name="Forward to TD" doc:id="forward-td-txn">
-                    <http:request method="GET" doc:name="Call TD /api/td/transactions"
+                    <http:request method="GET" doc:name="Call TD /fdx/v6/accounts/{accountId}/transactions"
                                   config-ref="HTTP_Request_configuration"
-                                  url="http://localhost:8082/api/td/transactions">
+                                  url='#["http://localhost:8082/fdx/v6/accounts/" ++ vars.accountId ++ "/transactions"]'>
                         <http:headers><![CDATA[#[{
                             "Authorization": "Bearer " ++ vars.tdAccessToken,
                             "Accept": "application/json",
