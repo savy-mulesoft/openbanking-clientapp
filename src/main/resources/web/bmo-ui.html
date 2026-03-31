@@ -590,44 +590,95 @@
             outline-offset: 3px;
         }
 
-        .external-connection-panel {
-            margin-top: 16px;
-            padding: 18px 16px;
-            background: var(--bmo-white);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-        }
-        .external-connection-panel[hidden] { display: none !important; }
+        .modal--external-detail { position: relative; max-width: 420px; }
 
-        .external-connection-panel__header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 14px;
+        .external-detail-intro {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 16px;
         }
-        .external-connection-panel__bank {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            min-width: 0;
-        }
-        .external-connection-panel__logo {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: var(--bmo-teal);
-            color: var(--bmo-white);
+
+        .modal-close-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(12, 35, 64, 0.06);
+            color: var(--text-muted);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
-            flex-shrink: 0;
+            padding: 0;
         }
-        .external-connection-panel__name { font-weight: 600; font-size: 16px; color: var(--text); }
-        .external-connection-panel__hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .modal-close-btn:active { transform: scale(0.96); }
+
+        .external-detail-hero {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--bmo-cream);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+        .external-detail-logo {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .external-detail-logo svg { width: 100%; height: 100%; display: block; }
+        .external-detail-bank-name {
+            font-weight: 600;
+            font-size: 18px;
+            color: var(--text);
+            letter-spacing: -0.02em;
+        }
+        .external-detail-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+        .external-detail-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        .external-detail-scopes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .external-detail-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.45;
+            margin: 0;
+        }
+        .modal-actions-external {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .modal-actions-external .btn-delete-connection { width: 100%; min-height: var(--tap-size); }
 
         .btn-delete-connection {
             flex-shrink: 0;
@@ -643,14 +694,6 @@
         }
         .btn-delete-connection:active { transform: scale(0.98); }
 
-        .scope-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
         .scope-chip {
             font-size: 12px;
             padding: 6px 10px;
@@ -688,25 +731,11 @@
                             <div class="card-value" id="totalBalance">—</div>
                             <div class="card-description" id="cashCardDesc">Connect a bank to populate</div>
                         </div>
-                        <div class="card" id="externalConnectionsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="externalConnectionPanel">
+                        <div class="card" id="externalConnectionsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="externalDetailModal">
                             <div class="card-label">External accounts</div>
                             <div class="card-value" id="accountCount">0</div>
                             <div class="card-description" id="externalCardDesc">No connections yet</div>
                         </div>
-                    </div>
-
-                    <div class="external-connection-panel" id="externalConnectionPanel" hidden>
-                        <div class="external-connection-panel__header">
-                            <div class="external-connection-panel__bank">
-                                <div class="external-connection-panel__logo" id="detailBankLogo">—</div>
-                                <div>
-                                    <div class="external-connection-panel__name" id="detailBankName">—</div>
-                                    <p class="external-connection-panel__hint">Authorized scopes</p>
-                                </div>
-                            </div>
-                            <button type="button" class="btn-delete-connection" id="btnDisconnectConnection">Delete</button>
-                        </div>
-                        <ul class="scope-list" id="detailScopesList"></ul>
                     </div>
 
                     <div class="api-section">
@@ -800,6 +829,27 @@
                 <div class="status-icon status-loading" id="statusIcon">⏳</div>
                 <h3 id="statusTitle">Connecting…</h3>
                 <p id="statusMessage">Securely authenticating with your bank…</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="externalDetailModal" role="dialog" aria-modal="true" aria-labelledby="externalDetailTitle" aria-hidden="true">
+        <div class="modal modal--external-detail">
+            <button type="button" class="modal-close-btn" id="externalDetailCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <h3 id="externalDetailTitle">External connection</h3>
+            <p class="external-detail-intro">Institution linked via OAuth. Scopes come from your authorization and, when the access token is a JWT, from token claims.</p>
+            <div class="external-detail-hero">
+                <div id="externalDetailLogo" class="external-detail-logo"></div>
+                <div>
+                    <div id="externalDetailBankName" class="external-detail-bank-name"></div>
+                    <p id="externalDetailSubtitle" class="external-detail-sub"></p>
+                </div>
+            </div>
+            <p class="external-detail-label">Authorized scopes</p>
+            <div id="externalDetailScopeTags" class="external-detail-scopes"></div>
+            <p id="externalDetailMeta" class="external-detail-meta"></p>
+            <div class="modal-actions-external">
+                <button type="button" class="btn-delete-connection" id="btnDisconnectExternalModal">Delete connection</button>
             </div>
         </div>
     </div>

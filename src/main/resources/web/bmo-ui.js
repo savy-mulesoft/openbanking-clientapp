@@ -3,6 +3,71 @@
 
     var LS_KEY = 'ob_external_connection_v1';
 
+    function decodeJwtPayload(token) {
+        if (!token || typeof token !== 'string') return null;
+        var parts = token.split('.');
+        if (parts.length !== 3) return null;
+        try {
+            var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (b64.length % 4) b64 += '=';
+            var json = atob(b64);
+            return JSON.parse(json);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function scopesFromClaims(claims) {
+        if (!claims || typeof claims !== 'object') return [];
+        var out = [];
+        if (claims.scope != null) {
+            out = out.concat(String(claims.scope).split(/\s+/).filter(Boolean));
+        }
+        if (Array.isArray(claims.scp)) {
+            out = out.concat(claims.scp.map(String));
+        }
+        if (Array.isArray(claims.permissions)) {
+            out = out.concat(claims.permissions.map(String));
+        }
+        return out;
+    }
+
+    function uniqueStrings(arr) {
+        var seen = {};
+        var r = [];
+        (arr || []).forEach(function (s) {
+            var k = String(s).trim();
+            if (!k || seen[k]) return;
+            seen[k] = true;
+            r.push(k);
+        });
+        return r;
+    }
+
+    function mergeAllScopes(conn) {
+        var base = conn.scopes || [];
+        var accClaims = decodeJwtPayload(conn.accessToken);
+        var idClaims = decodeJwtPayload(conn.idToken);
+        return uniqueStrings(
+            base.concat(scopesFromClaims(accClaims)).concat(scopesFromClaims(idClaims))
+        );
+    }
+
+    function normalizeConnectionForSave(obj) {
+        var merged = mergeAllScopes(obj);
+        var scopes = merged.length ? merged : (obj.scopes || []);
+        return {
+            accessToken: obj.accessToken,
+            idToken: obj.idToken || null,
+            tokenType: obj.tokenType || 'Bearer',
+            bankName: obj.bankName || 'External bank',
+            scopes: scopes,
+            sessionId: obj.sessionId || null,
+            connectedAt: obj.connectedAt || new Date().toISOString(),
+            tokenShape: obj.tokenShape || null
+        };
+    }
+
     function getStoredConnection() {
         try {
             var raw = localStorage.getItem(LS_KEY);
@@ -14,16 +79,55 @@
     }
 
     function saveConnection(conn) {
-        localStorage.setItem(LS_KEY, JSON.stringify(conn));
+        localStorage.setItem(LS_KEY, JSON.stringify(normalizeConnectionForSave(conn)));
     }
 
-    function bankLogoLabel(bankName) {
+    function bankBrandKey(bankName) {
         var n = (bankName || '').toUpperCase();
-        if (n.indexOf('RBC') !== -1 || n.indexOf('ROYAL') !== -1) return 'RBC';
-        if (n.indexOf('TD') !== -1) return 'TD';
-        if (n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'SCO';
-        if (n.indexOf('CIBC') !== -1 || n.indexOf('CIB') !== -1) return 'CIB';
-        return (bankName || 'BANK').slice(0, 3).toUpperCase();
+        if (n.indexOf('RBC') !== -1 || n.indexOf('ROYAL') !== -1) return 'rbc';
+        if (n.indexOf('TD') !== -1) return 'td';
+        if (n.indexOf('SCOTIA') !== -1 || n.indexOf('SCO') !== -1) return 'scotia';
+        if (n.indexOf('CIBC') !== -1 || n.indexOf('CIB') !== -1) return 'cibc';
+        return 'default';
+    }
+
+    function bankDisplayName(bankName, key) {
+        var map = {
+            rbc: 'Royal Bank of Canada',
+            td: 'TD Canada Trust',
+            scotia: 'Scotiabank',
+            cibc: 'CIBC',
+            default: null
+        };
+        if (map[key]) return map[key];
+        return bankName || 'External bank';
+    }
+
+    function bankLogoSvgHtml(key) {
+        var svgStart = '<svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">';
+        var rect = function (fill, label) {
+            return (
+                svgStart +
+                '<rect fill="' +
+                fill +
+                '" width="56" height="56" rx="14"/>' +
+                '<text x="28" y="36" text-anchor="middle" fill="#fff" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="16">' +
+                label +
+                '</text></svg>'
+            );
+        };
+        switch (key) {
+            case 'td':
+                return rect('#53B700', 'TD');
+            case 'rbc':
+                return rect('#0051A5', 'RBC');
+            case 'scotia':
+                return rect('#EC111A', 'SCO');
+            case 'cibc':
+                return rect('#B82025', 'CIB');
+            default:
+                return rect('#007078', 'OB');
+        }
     }
 
     function renderExternalConnections() {
@@ -31,50 +135,134 @@
         var countEl = document.getElementById('accountCount');
         var descEl = document.getElementById('externalCardDesc');
         var card = document.getElementById('externalConnectionsCard');
-        var panel = document.getElementById('externalConnectionPanel');
 
-        if (!countEl || !descEl || !card || !panel) return;
+        if (!countEl || !descEl || !card) return;
 
         var n = conn ? 1 : 0;
         countEl.textContent = String(n);
         descEl.textContent = n ? '1 active connection' : 'No connections yet';
         card.classList.toggle('card--interactive', n > 0);
-        card.setAttribute('aria-expanded', n ? 'false' : 'false');
+        card.setAttribute('aria-expanded', 'false');
 
-        if (!conn) {
-            panel.hidden = true;
-            return;
+        if (!n) {
+            closeExternalDetailModal();
         }
-
-        document.getElementById('detailBankLogo').textContent = bankLogoLabel(conn.bankName);
-        document.getElementById('detailBankName').textContent = conn.bankName || 'External bank';
-        var ul = document.getElementById('detailScopesList');
-        ul.innerHTML = '';
-        (conn.scopes || []).forEach(function (s) {
-            var li = document.createElement('li');
-            li.className = 'scope-chip';
-            li.textContent = s;
-            ul.appendChild(li);
-        });
     }
 
-    function toggleExternalPanel() {
+    function closeExternalDetailModal() {
+        var m = document.getElementById('externalDetailModal');
+        var card = document.getElementById('externalConnectionsCard');
+        if (m) {
+            m.classList.remove('is-open');
+            m.style.display = 'none';
+            m.setAttribute('aria-hidden', 'true');
+        }
+        if (card) card.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('modal-open');
+    }
+
+    function openExternalDetailModal() {
         var conn = getStoredConnection();
         if (!conn) return;
-        var panel = document.getElementById('externalConnectionPanel');
+
+        window.closeConnectionModal();
+
+        var m = document.getElementById('externalDetailModal');
+        if (!m) return;
+
+        populateExternalDetailModal(conn);
+
+        m.style.display = 'flex';
+        m.classList.add('is-open');
+        m.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
         var card = document.getElementById('externalConnectionsCard');
-        var open = panel.hidden;
-        panel.hidden = !open;
-        card.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (card) card.setAttribute('aria-expanded', 'true');
+    }
+
+    function populateExternalDetailModal(conn) {
+        var brand = bankBrandKey(conn.bankName);
+        var displayName = bankDisplayName(conn.bankName, brand);
+        var accClaims = decodeJwtPayload(conn.accessToken);
+        var idClaims = decodeJwtPayload(conn.idToken);
+        var scopes = mergeAllScopes(conn);
+
+        var logoEl = document.getElementById('externalDetailLogo');
+        var nameEl = document.getElementById('externalDetailBankName');
+        var subEl = document.getElementById('externalDetailSubtitle');
+        var tagsEl = document.getElementById('externalDetailScopeTags');
+        var metaEl = document.getElementById('externalDetailMeta');
+
+        if (logoEl) logoEl.innerHTML = bankLogoSvgHtml(brand);
+        if (nameEl) nameEl.textContent = displayName;
+        if (subEl) {
+            subEl.textContent =
+                'Chosen at connect: ' + (conn.bankName || displayName) + ' · Linked ' + formatConnectedAt(conn.connectedAt);
+        }
+
+        if (tagsEl) {
+            tagsEl.innerHTML = '';
+            if (scopes.length === 0) {
+                var empty = document.createElement('span');
+                empty.className = 'scope-chip';
+                empty.textContent = 'No scopes listed';
+                tagsEl.appendChild(empty);
+            } else {
+                scopes.forEach(function (s) {
+                    var span = document.createElement('span');
+                    span.className = 'scope-chip';
+                    span.textContent = s;
+                    tagsEl.appendChild(span);
+                });
+            }
+        }
+
+        if (metaEl) {
+            var lines = [];
+            var serverHint = conn.tokenShape;
+            if (accClaims) {
+                lines.push('Access token payload decoded in browser (POC only; do not ship secrets to production this way).');
+                if (serverHint) lines.push('Server hint: access_token_format=' + serverHint + '.');
+                if (accClaims.aud != null) {
+                    lines.push('Audience (aud): ' + formatClaimAud(accClaims.aud));
+                }
+                if (accClaims.azp) lines.push('Authorized party (azp): ' + accClaims.azp);
+                if (accClaims.scope && String(accClaims.scope).trim()) {
+                    lines.push('Scope claim on token: ' + accClaims.scope);
+                }
+            } else {
+                lines.push(
+                    'Could not parse access token as JWT (often opaque with Auth0 API access tokens). Scopes shown are from OAuth state and /api/oauth/session requested_scopes.'
+                );
+                if (serverHint) lines.push('Server hint: access_token_format=' + serverHint + '.');
+            }
+            if (idClaims) {
+                lines.push('ID token is a JWT (OpenID claims; not expanded here).');
+            }
+            metaEl.textContent = lines.join(' ');
+        }
+    }
+
+    function formatClaimAud(aud) {
+        if (Array.isArray(aud)) return aud.join(', ');
+        return String(aud);
+    }
+
+    function formatConnectedAt(iso) {
+        if (!iso) return '';
+        try {
+            var d = new Date(iso);
+            return d.toLocaleString();
+        } catch (e) {
+            return iso;
+        }
     }
 
     function disconnectExternal() {
         localStorage.removeItem(LS_KEY);
         fetch('/api/oauth/disconnect', { method: 'POST' }).catch(function () { /* ignore */ });
-        var panel = document.getElementById('externalConnectionPanel');
-        var card = document.getElementById('externalConnectionsCard');
-        if (panel) panel.hidden = true;
-        if (card) card.setAttribute('aria-expanded', 'false');
+        closeExternalDetailModal();
         renderExternalConnections();
         showNotification('Connection removed. Connect again to link your bank.', 'success');
     }
@@ -94,22 +282,33 @@
         var scopesFromUrl = (params.get('scopes') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 
         return fetch('/api/oauth/session')
-            .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { res: res, data: data };
+                });
+            })
             .then(function (o) {
                 if (!o.res.ok || !o.data.access_token) {
                     showNotification('Could not read session from server. Try Connect again.', 'warn');
                     window.history.replaceState({}, '', '/');
                     return;
                 }
-                var scopes = scopesFromUrl.length ? scopesFromUrl : (o.data.requested_scopes || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                var fromServerScopes = (o.data.requested_scopes || '')
+                    .split(',')
+                    .map(function (s) {
+                        return s.trim();
+                    })
+                    .filter(Boolean);
+                var baseScopes = scopesFromUrl.length ? scopesFromUrl : fromServerScopes;
                 saveConnection({
                     accessToken: o.data.access_token,
                     idToken: o.data.id_token || null,
                     tokenType: o.data.token_type || 'Bearer',
                     bankName: bankFromUrl || o.data.bankName || 'External bank',
-                    scopes: scopes,
+                    scopes: baseScopes,
                     sessionId: o.data.session_id || null,
-                    connectedAt: new Date().toISOString()
+                    connectedAt: new Date().toISOString(),
+                    tokenShape: o.data.access_token_format || null
                 });
                 showNotification('Bank connected successfully.', 'success');
                 window.history.replaceState({}, '', '/');
@@ -129,7 +328,12 @@
             })
             .then(function (data) {
                 if (!data || !data.access_token) return;
-                var scopes = (data.requested_scopes || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                var scopes = (data.requested_scopes || '')
+                    .split(',')
+                    .map(function (s) {
+                        return s.trim();
+                    })
+                    .filter(Boolean);
                 saveConnection({
                     accessToken: data.access_token,
                     idToken: data.id_token || null,
@@ -137,7 +341,8 @@
                     bankName: data.bankName || 'External bank',
                     scopes: scopes,
                     sessionId: data.session_id || null,
-                    connectedAt: new Date().toISOString()
+                    connectedAt: new Date().toISOString(),
+                    tokenShape: data.access_token_format || null
                 });
             })
             .catch(function () { /* ignore */ });
@@ -152,7 +357,9 @@
         resultsEl.style.display = 'none';
 
         return fetch(endpoint)
-            .then(function (response) { return response.json(); })
+            .then(function (response) {
+                return response.json();
+            })
             .then(function (data) {
                 resultsEl.textContent = JSON.stringify(data, null, 2);
                 resultsEl.style.display = 'block';
@@ -173,7 +380,9 @@
         var cashDesc = document.getElementById('cashCardDesc');
         if (accountsData && accountsData.accounts) {
             var accounts = accountsData.accounts;
-            var totalBalance = accounts.reduce(function (sum, acc) { return sum + acc.balance; }, 0);
+            var totalBalance = accounts.reduce(function (sum, acc) {
+                return sum + acc.balance;
+            }, 0);
             var tb = document.getElementById('totalBalance');
             if (tb) {
                 tb.textContent = '$' + totalBalance.toLocaleString('en-CA') + ' CAD';
@@ -191,6 +400,7 @@
     window.openConnectionModal = function () {
         var el = document.getElementById('connectionModal');
         if (!el) return;
+        closeExternalDetailModal();
         el.style.display = 'flex';
         el.classList.add('is-open');
         document.body.classList.add('modal-open');
@@ -205,7 +415,9 @@
         if (!el) return;
         el.classList.remove('is-open');
         el.style.display = 'none';
-        document.body.classList.remove('modal-open');
+        if (!document.getElementById('externalDetailModal') || !document.getElementById('externalDetailModal').classList.contains('is-open')) {
+            document.body.classList.remove('modal-open');
+        }
     };
 
     window.selectBank = function (bankName) {
@@ -233,7 +445,8 @@
             if (statusTitle) statusTitle.textContent = 'Authenticating';
             if (statusMessage) statusMessage.textContent = 'Redirecting to ' + bankName + ' OAuth flow\u2026';
 
-            var oauthUrl = '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&access_types=ACCOUNT_BASIC,TRANSACTIONS';
+            var oauthUrl =
+                '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&access_types=ACCOUNT_BASIC,TRANSACTIONS';
 
             setTimeout(function () {
                 window.location.href = oauthUrl;
@@ -242,6 +455,7 @@
     };
 
     window.testEndpoint = testEndpoint;
+    window.closeExternalDetailModal = closeExternalDetailModal;
 
     function showNotification(message, type) {
         var host = document.getElementById('toastHost');
@@ -263,27 +477,49 @@
     }
 
     function wireDom() {
-        var modal = document.getElementById('connectionModal');
-        if (modal) {
-            modal.addEventListener('click', function (e) {
+        var connModal = document.getElementById('connectionModal');
+        if (connModal) {
+            connModal.addEventListener('click', function (e) {
                 if (e.target.id === 'connectionModal') {
                     window.closeConnectionModal();
                 }
             });
         }
+
+        var extModal = document.getElementById('externalDetailModal');
+        if (extModal) {
+            extModal.addEventListener('click', function (e) {
+                if (e.target.id === 'externalDetailModal') {
+                    closeExternalDetailModal();
+                }
+            });
+        }
+
+        var extClose = document.getElementById('externalDetailCloseBtn');
+        if (extClose) {
+            extClose.addEventListener('click', function () {
+                closeExternalDetailModal();
+            });
+        }
+
         var ext = document.getElementById('externalConnectionsCard');
         if (ext) {
             ext.addEventListener('click', function () {
-                toggleExternalPanel();
+                if (getStoredConnection()) {
+                    openExternalDetailModal();
+                }
             });
             ext.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    toggleExternalPanel();
+                    if (getStoredConnection()) {
+                        openExternalDetailModal();
+                    }
                 }
             });
         }
-        var btn = document.getElementById('btnDisconnectConnection');
+
+        var btn = document.getElementById('btnDisconnectExternalModal');
         if (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -300,10 +536,14 @@
 
     window.addEventListener('load', function () {
         handleOAuthReturn()
-            .then(function () { return tryHydrateConnectionFromServer(); })
+            .then(function () {
+                return tryHydrateConnectionFromServer();
+            })
             .then(function () {
                 renderExternalConnections();
-                setTimeout(function () { loadAccountData(); }, 500);
+                setTimeout(function () {
+                    loadAccountData();
+                }, 500);
             })
             .catch(function (err) {
                 console.error('BMO UI bootstrap error', err);

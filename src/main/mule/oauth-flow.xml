@@ -505,6 +505,9 @@ output application/json
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 var s = vars.sess
+var at = s.access_token default ""
+var dotParts = at splitBy "."
+var looksLikeJwt = sizeOf(dotParts filter (!isEmpty($))) == 3
 ---
 {
     access_token: s.access_token,
@@ -513,7 +516,8 @@ var s = vars.sess
     expires_at: s.expires_at,
     session_id: s.session_id,
     bankName: s.bankName,
-    requested_scopes: s.requested_scopes
+    requested_scopes: s.requested_scopes,
+    access_token_format: if (looksLikeJwt) "jwt" else "opaque"
 }]]></ee:set-payload>
                 </ee:message>
                 <ee:variables>
