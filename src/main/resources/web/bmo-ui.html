@@ -66,10 +66,7 @@
         .app-header {
             background: linear-gradient(180deg, var(--bmo-navy) 0%, #0f2d52 100%);
             color: var(--bmo-white);
-            padding: calc(12px + env(safe-area-inset-top)) 20px 18px;
-            position: sticky;
-            top: 0;
-            z-index: 40;
+            padding: calc(12px + env(safe-area-inset-top)) 20px 16px;
         }
 
         .header-row {
@@ -131,6 +128,263 @@
             text-transform: uppercase;
         }
 
+        .header-sticky {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .header-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .header-toolbar__spacer { flex: 1; min-width: 8px; }
+
+        .header-ql-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.96);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .header-ql-btn:active { transform: scale(0.98); }
+
+        @media (hover: hover) {
+            .header-ql-btn:hover {
+                background: rgba(255, 255, 255, 0.14);
+                border-color: rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        .header-ql-btn svg { flex-shrink: 0; opacity: 0.9; }
+        .header-ql-btn .header-ql-chevron {
+            transition: transform 0.35s var(--ease-spring);
+            margin-left: -2px;
+        }
+        .header-ql-btn[aria-expanded="true"] .header-ql-chevron {
+            transform: rotate(180deg);
+        }
+
+        .header-icon-btn {
+            position: relative;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.95);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .header-icon-btn:active { transform: scale(0.96); }
+
+        @media (hover: hover) {
+            .header-icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
+        }
+
+        .header-icon-btn--notif {
+            box-shadow: 0 0 0 0 rgba(255, 196, 87, 0);
+        }
+
+        .header-icon-btn--notif.has-alert {
+            box-shadow: 0 0 0 2px rgba(255, 196, 87, 0.45);
+            border-color: rgba(255, 214, 120, 0.55);
+        }
+
+        .notif-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 100px;
+            background: linear-gradient(180deg, #ff6b4a 0%, #e63b2e 100%);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            box-shadow: 0 2px 6px rgba(230, 59, 46, 0.45);
+        }
+
+        .header-user {
+            position: relative;
+        }
+
+        .header-user-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            max-width: min(160px, 42vw);
+            padding: 5px 6px 5px 5px;
+            padding-right: 10px;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.98);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .header-user-btn:active { transform: scale(0.98); }
+
+        @media (hover: hover) {
+            .header-user-btn:hover { background: rgba(255, 255, 255, 0.16); }
+        }
+
+        .header-user-btn__avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, rgba(0, 200, 212, 0.35) 0%, rgba(0, 112, 120, 0.85) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .header-user-btn__name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .header-user-btn .header-user-chevron {
+            flex-shrink: 0;
+            opacity: 0.75;
+            transition: transform 0.3s var(--ease-spring);
+        }
+
+        .header-user-btn[aria-expanded="true"] .header-user-chevron {
+            transform: rotate(180deg);
+        }
+
+        .header-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 220px;
+            padding: 8px;
+            background: var(--bmo-white);
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            z-index: 60;
+            animation: dropdownIn 0.28s var(--ease-spring) both;
+        }
+
+        @keyframes dropdownIn {
+            from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .header-dropdown[hidden] {
+            display: none !important;
+        }
+
+        .header-dropdown__item {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s;
+        }
+
+        @media (hover: hover) {
+            .header-dropdown__item:hover { background: rgba(12, 35, 64, 0.05); }
+        }
+
+        .header-dropdown__item:active { background: rgba(12, 35, 64, 0.08); }
+
+        .header-dropdown__item--danger {
+            color: #a32020;
+        }
+
+        .quick-links-panel {
+            background: var(--bmo-white);
+            border-bottom: 1px solid var(--border);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.42s var(--ease-spring);
+        }
+
+        .quick-links-panel.is-open {
+            max-height: 320px;
+        }
+
+        .quick-links-panel__inner {
+            padding: 18px 20px 22px;
+        }
+
+        .quick-links-card h3 {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .quick-links-card p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.45;
+            margin-bottom: 16px;
+        }
+
+        .quick-links-card .btn-primary {
+            width: auto;
+            min-width: 200px;
+            padding-left: 22px;
+            padding-right: 22px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .quick-links-panel { transition: none; }
+            .header-dropdown { animation: none; }
+            .header-ql-btn .header-ql-chevron,
+            .header-user-btn .header-user-chevron { transition: none; }
+        }
+
         .app-main {
             padding: 20px 18px calc(100px + env(safe-area-inset-bottom));
         }
@@ -165,7 +419,7 @@
         }
 
         @media (min-width: 900px) {
-            .grid { grid-template-columns: 1fr 280px; align-items: start; }
+            .grid { grid-template-columns: 1fr; align-items: start; }
         }
 
         .cards {
@@ -216,32 +470,6 @@
             font-size: 13px;
             color: var(--text-muted);
             margin-top: 6px;
-        }
-
-        .sidebar {
-            background: var(--bmo-white);
-            border-radius: var(--radius-lg);
-            padding: 22px 20px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-        }
-
-        @media (max-width: 899px) {
-            .sidebar {
-                display: none;
-            }
-        }
-
-        .sidebar h3 {
-            font-size: 17px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .sidebar p {
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 18px;
         }
 
         .btn-primary {
@@ -697,20 +925,68 @@
 </head>
 <body>
     <div class="app-shell">
-        <header class="app-header">
-            <div class="header-row">
-                <div class="logo">
-                    <div class="logo-icon" role="img" aria-label="BMO">
-                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" loading="lazy" />
+        <div class="header-sticky">
+            <header class="app-header">
+                <div class="header-row">
+                    <div class="logo">
+                        <div class="logo-icon" role="img" aria-label="BMO">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" loading="lazy" />
+                        </div>
+                        <div class="logo-text">
+                            <h1>Open Banking</h1>
+                            <p>Proof of concept</p>
+                        </div>
                     </div>
-                    <div class="logo-text">
-                        <h1>Open Banking</h1>
-                        <p>Proof of concept</p>
+                    <span class="badge">Sandbox</span>
+                </div>
+
+                <div class="header-toolbar">
+                    <button type="button" class="header-ql-btn" id="quickLinksToggle" aria-expanded="false" aria-controls="quickLinksPanel">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                        <span>Quick links</span>
+                        <svg class="header-ql-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </button>
+                    <span class="header-toolbar__spacer" aria-hidden="true"></span>
+                    <button type="button" class="header-icon-btn header-icon-btn--notif has-alert" id="notifBtn" aria-label="Notifications, 1 unread">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="notif-badge" id="notifBadge">1</span>
+                    </button>
+                    <div class="header-user">
+                        <button type="button" class="header-user-btn" id="userMenuBtn" aria-expanded="false" aria-haspopup="true" aria-controls="userMenuDropdown">
+                            <span class="header-user-btn__avatar" aria-hidden="true">JD</span>
+                            <span class="header-user-btn__name">John Doe</span>
+                            <svg class="header-user-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M6 9l6 6 6-6"/>
+                            </svg>
+                        </button>
+                        <div id="userMenuDropdown" class="header-dropdown" role="menu" hidden>
+                            <button type="button" class="header-dropdown__item" role="menuitem" data-demo-action="preferences">Preferences</button>
+                            <button type="button" class="header-dropdown__item" role="menuitem" data-demo-action="security">Security</button>
+                            <button type="button" class="header-dropdown__item" role="menuitem" data-demo-action="help">Help &amp; support</button>
+                            <button type="button" class="header-dropdown__item header-dropdown__item--danger" role="menuitem" data-demo-action="signout">Sign out</button>
+                        </div>
                     </div>
                 </div>
-                <span class="badge">Sandbox</span>
+            </header>
+
+            <div id="quickLinksPanel" class="quick-links-panel" aria-hidden="true">
+                <div class="quick-links-panel__inner">
+                    <div class="quick-links-card">
+                        <h3>Quick links</h3>
+                        <p>Securely connect an external institution using OAuth.</p>
+                        <button type="button" class="btn-primary" onclick="openConnectionModal()">Connect external bank</button>
+                    </div>
+                </div>
             </div>
-        </header>
+        </div>
 
         <main class="app-main">
             <div class="grid">
@@ -759,12 +1035,6 @@
                         </div>
                     </div>
                 </section>
-
-                <aside class="sidebar">
-                    <h3>Quick actions</h3>
-                    <p>Securely connect an external institution using OAuth.</p>
-                    <button type="button" class="btn-primary" onclick="openConnectionModal()">Connect external bank</button>
-                </aside>
             </div>
         </main>
     </div>

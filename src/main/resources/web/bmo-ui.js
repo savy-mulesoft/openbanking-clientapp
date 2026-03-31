@@ -543,6 +543,92 @@
     }
 
     function wireDom() {
+        var qlToggle = document.getElementById('quickLinksToggle');
+        var qlPanel = document.getElementById('quickLinksPanel');
+        var userBtn = document.getElementById('userMenuBtn');
+        var userDropdown = document.getElementById('userMenuDropdown');
+        var notifBtn = document.getElementById('notifBtn');
+
+        function setQuickLinksOpen(open) {
+            if (!qlToggle || !qlPanel) return;
+            qlToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            qlPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+            qlPanel.classList.toggle('is-open', open);
+        }
+
+        function closeQuickLinks() {
+            setQuickLinksOpen(false);
+        }
+
+        function closeUserMenu() {
+            if (!userBtn || !userDropdown) return;
+            userBtn.setAttribute('aria-expanded', 'false');
+            userDropdown.hidden = true;
+        }
+
+        function toggleUserMenu() {
+            if (!userBtn || !userDropdown) return;
+            var open = userDropdown.hidden;
+            closeQuickLinks();
+            userBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            userDropdown.hidden = !open;
+        }
+
+        if (qlToggle && qlPanel) {
+            qlToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                closeUserMenu();
+                var next = !qlPanel.classList.contains('is-open');
+                setQuickLinksOpen(next);
+            });
+            qlPanel.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+        }
+
+        if (userBtn && userDropdown) {
+            userDropdown.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+            userBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleUserMenu();
+            });
+            userDropdown.querySelectorAll('[data-demo-action]').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    var act = item.getAttribute('data-demo-action');
+                    var labels = {
+                        preferences: 'Preferences (demo)',
+                        security: 'Security (demo)',
+                        help: 'Help & support (demo)',
+                        signout: 'Sign out (demo)'
+                    };
+                    showNotification(labels[act] || 'Action (demo)', 'success');
+                    closeUserMenu();
+                });
+            });
+        }
+
+        if (notifBtn) {
+            notifBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                closeUserMenu();
+                showNotification('You have 1 notification (demo inbox).', 'warn');
+            });
+        }
+
+        document.addEventListener('click', function () {
+            closeUserMenu();
+            closeQuickLinks();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeUserMenu();
+                closeQuickLinks();
+            }
+        });
+
         var connModal = document.getElementById('connectionModal');
         if (connModal) {
             connModal.addEventListener('click', function (e) {
