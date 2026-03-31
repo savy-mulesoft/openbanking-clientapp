@@ -621,8 +621,10 @@ var s = vars.sess
 var at = s.access_token default ""
 var dotParts = at splitBy "."
 var looksLikeJwt = sizeOf(dotParts filter (!isEmpty($))) == 3
-var rawBrand = trim(s.bankBrand default "")
-var bankBrandOut = if (!isEmpty(rawBrand) and lower(rawBrand) != "default") rawBrand else bankBrandKey(s.bankName default "")
+var bankNameRaw = trim((s.bankName default s.bank_name) default "")
+var rawBrand = trim((s.bankBrand default s.bank_brand) default "")
+var bankBrandOut = if (!isEmpty(rawBrand) and lower(rawBrand) != "default") rawBrand else bankBrandKey(bankNameRaw)
+var dispRaw = trim((s.bankDisplayName default s.bank_display_name) default "")
 ---
 {
     access_token: s.access_token,
@@ -630,8 +632,8 @@ var bankBrandOut = if (!isEmpty(rawBrand) and lower(rawBrand) != "default") rawB
     token_type: s.token_type default "Bearer",
     expires_at: s.expires_at,
     session_id: s.session_id,
-    bankName: s.bankName,
-    bankDisplayName: s.bankDisplayName default s.bankName,
+    bankName: bankNameRaw,
+    bankDisplayName: if (!isEmpty(dispRaw)) dispRaw else bankNameRaw,
     bankBrand: bankBrandOut,
     requested_scopes: s.requested_scopes,
     scopes_technical: s.scopes_technical default [],

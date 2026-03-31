@@ -2,6 +2,50 @@
     'use strict';
 
     var LS_KEY = 'ob_external_connection_v1';
+    var SESS_PENDING_BANK = 'ob_pending_bank_choice_v1';
+
+    function clearPendingBankChoice() {
+        try {
+            sessionStorage.removeItem(SESS_PENDING_BANK);
+        } catch (e) { /* ignore */ }
+    }
+
+    function setPendingBankChoice(name) {
+        try {
+            sessionStorage.setItem(SESS_PENDING_BANK, String(name || '').trim());
+        } catch (e) { /* ignore */ }
+    }
+
+    function peekPendingBankChoice() {
+        try {
+            return (sessionStorage.getItem(SESS_PENDING_BANK) || '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    /** Normalize API / OS quirks (snake_case, missing bank on redirect). */
+    function sessionBankFields(d) {
+        if (!d || typeof d !== 'object') {
+            return { bankName: '', bankDisplayName: null, bankBrand: null };
+        }
+        var bn = d.bankName != null ? String(d.bankName).trim() : '';
+        if (!bn && d.bank_name != null) bn = String(d.bank_name).trim();
+        var bd = d.bankDisplayName != null ? String(d.bankDisplayName).trim() : '';
+        if (!bd && d.bank_display_name != null) bd = String(d.bank_display_name).trim();
+        var br = d.bankBrand != null ? d.bankBrand : d.bank_brand;
+        return { bankName: bn, bankDisplayName: bd || null, bankBrand: br != null ? br : null };
+    }
+
+    function bankFromQueryParams(params) {
+        var raw = params.get('bank');
+        if (raw == null || raw === '') return '';
+        try {
+            return decodeURIComponent(String(raw).replace(/\+/g, ' ')).trim();
+        } catch (e) {
+            return String(raw).trim();
+        }
+    }
 
     /** Hosted bank marks (user-supplied URLs). */
     var BANK_LOGO_URLS = {
@@ -87,7 +131,9 @@
         var raw = obj.bankBrand;
         var s = raw != null && raw !== '' ? String(raw).trim().toLowerCase() : '';
         if (s && s !== 'default') return s;
-        return bankBrandKey(obj.bankName);
+        var k = bankBrandKey(obj.bankName);
+        if (k !== 'default') return k;
+        return bankBrandKey(obj.bankDisplayName);
     }
 
     function normalizeConnectionForSave(obj) {
@@ -137,6 +183,28 @@
         localStorage.setItem(LS_KEY, JSON.stringify(normalizeConnectionForSave(conn)));
     }
 
+    /** Re-save if bankBrand/bankName can be inferred better (e.g. old \"default\" + TD display name). */
+    function maybeMigrateStoredConnection() {
+        try {
+            var raw = localStorage.getItem(LS_KEY);
+            if (!raw) return;
+            var cur = JSON.parse(raw);
+            var next = normalizeConnectionForSave(cur);
+            var pick = function (x) {
+                return {
+                    bankName: x.bankName,
+                    bankBrand: x.bankBrand,
+                    bankDisplayName: x.bankDisplayName
+                };
+            };
+            if (JSON.stringify(pick(cur)) !== JSON.stringify(pick(next))) {
+                localStorage.setItem(LS_KEY, JSON.stringify(next));
+            }
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
     function bankBrandKey(bankName) {
         var n = String(bankName || '')
             .trim()
@@ -163,6 +231,9 @@
     }
 
     function bankLogoSvgHtml(key) {
+        var k = String(key == null ? 'default' : key)
+            .trim()
+            .toLowerCase();
         var svgStart = '<svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">';
         var rect = function (fill, label) {
             return (
@@ -175,7 +246,7 @@
                 '</text></svg>'
             );
         };
-        switch (key) {
+        switch (k) {
             case 'bmo':
                 return rect('#007078', 'BMO');
             case 'td':
@@ -194,9 +265,12 @@
     function bankLogoFillContainer(container, brand, altText) {
         if (!container) return;
         container.innerHTML = '';
-        var url = BANK_LOGO_URLS[brand];
+        var k = String(brand == null ? 'default' : brand)
+            .trim()
+            .toLowerCase();
+        var url = BANK_LOGO_URLS[k];
         if (!url) {
-            container.innerHTML = bankLogoSvgHtml(brand);
+            container.innerHTML = bankLogoSvgHtml(k);
             return;
         }
         var img = document.createElement('img');
@@ -209,7 +283,7 @@
         img.style.display = 'block';
         img.addEventListener('error', function onLogoErr() {
             img.removeEventListener('error', onLogoErr);
-            container.innerHTML = bankLogoSvgHtml(brand);
+            container.innerHTML = bankLogoSvgHtml(k);
         });
         container.appendChild(img);
     }
@@ -382,14 +456,16 @@
         var status = params.get('status');
         if (status === 'error') {
             var err = params.get('error') || 'unknown';
+            clearPendingBankChoice();
             showNotification('Connection failed: ' + err, 'warn');
             window.history.replaceState({}, '', '/');
             return Promise.resolve();
         }
         if (status !== 'success') return Promise.resolve();
 
-        var bankFromUrl = params.get('bank') || '';
+        var bankFromUrl = bankFromQueryParams(params);
         var scopesFromUrl = (params.get('scopes') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        var pendingPick = peekPendingBankChoice();
 
         return fetch('/api/oauth/session')
             .then(function (res) {
@@ -399,10 +475,12 @@
             })
             .then(function (o) {
                 if (!o.res.ok || !o.data.access_token) {
+                    clearPendingBankChoice();
                     showNotification('Could not read session from server. Try Connect again.', 'warn');
                     window.history.replaceState({}, '', '/');
                     return;
                 }
+                var sb = sessionBankFields(o.data);
                 var tech = coerceArray(o.data.scopes_technical);
                 if (!tech.length) {
                     tech = (o.data.requested_scopes || '')
@@ -414,13 +492,14 @@
                 }
                 if (!tech.length) tech = scopesFromUrl;
                 var human = coerceArray(o.data.scopes_human);
+                var resolvedName = bankFromUrl || sb.bankName || pendingPick || 'External bank';
                 saveConnection({
                     accessToken: o.data.access_token,
                     idToken: o.data.id_token || null,
                     tokenType: o.data.token_type || 'Bearer',
-                    bankName: bankFromUrl || o.data.bankName || 'External bank',
-                    bankDisplayName: o.data.bankDisplayName || null,
-                    bankBrand: o.data.bankBrand || null,
+                    bankName: resolvedName,
+                    bankDisplayName: sb.bankDisplayName || null,
+                    bankBrand: sb.bankBrand != null ? sb.bankBrand : o.data.bankBrand,
                     scopes: tech,
                     scopesTechnical: tech,
                     scopesHuman: human,
@@ -428,10 +507,12 @@
                     connectedAt: new Date().toISOString(),
                     tokenShape: o.data.access_token_format || null
                 });
+                clearPendingBankChoice();
                 showNotification('Bank connected successfully.', 'success');
                 window.history.replaceState({}, '', '/');
             })
             .catch(function (e) {
+                clearPendingBankChoice();
                 showNotification('Could not complete connection: ' + (e.message || String(e)), 'warn');
                 window.history.replaceState({}, '', '/');
             });
@@ -446,6 +527,7 @@
             })
             .then(function (data) {
                 if (!data || !data.access_token) return;
+                var sb = sessionBankFields(data);
                 var tech = coerceArray(data.scopes_technical);
                 if (!tech.length) {
                     tech = (data.requested_scopes || '')
@@ -455,13 +537,14 @@
                         })
                         .filter(Boolean);
                 }
+                var resolvedName = sb.bankName || peekPendingBankChoice() || 'External bank';
                 saveConnection({
                     accessToken: data.access_token,
                     idToken: data.id_token || null,
                     tokenType: data.token_type || 'Bearer',
-                    bankName: data.bankName || 'External bank',
-                    bankDisplayName: data.bankDisplayName || null,
-                    bankBrand: data.bankBrand || null,
+                    bankName: resolvedName,
+                    bankDisplayName: sb.bankDisplayName || null,
+                    bankBrand: sb.bankBrand != null ? sb.bankBrand : data.bankBrand,
                     scopes: tech,
                     scopesTechnical: tech,
                     scopesHuman: coerceArray(data.scopes_human),
@@ -469,6 +552,7 @@
                     connectedAt: new Date().toISOString(),
                     tokenShape: data.access_token_format || null
                 });
+                clearPendingBankChoice();
             })
             .catch(function () { /* ignore */ });
     }
@@ -525,6 +609,7 @@
     window.openConnectionModal = function () {
         var el = document.getElementById('connectionModal');
         if (!el) return;
+        clearPendingBankChoice();
         closeExternalDetailModal();
         closeCashBreakdownModal();
         el.style.display = 'flex';
@@ -568,6 +653,8 @@
             }
             if (statusTitle) statusTitle.textContent = 'Authenticating';
             if (statusMessage) statusMessage.textContent = 'Redirecting to ' + bankName + ' OAuth flow\u2026';
+
+            setPendingBankChoice(bankName);
 
             var oauthUrl =
                 '/api/auth/connect?bank=' + encodeURIComponent(bankName) + '&access_types=ACCOUNT_BASIC,TRANSACTIONS';
@@ -843,6 +930,7 @@
                 return tryHydrateConnectionFromServer();
             })
             .then(function () {
+                maybeMigrateStoredConnection();
                 renderExternalConnections();
                 setTimeout(function () {
                     loadAccountData();
