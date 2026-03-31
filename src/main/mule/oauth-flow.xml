@@ -115,7 +115,7 @@ fun bankBrandKey(b) = do {
     ---
     if (u == "RBC" or contains(u, "ROYAL")) "rbc"
     else if (u == "BMO" or contains(u, "BANK OF MONTREAL") or contains(u, "BMO")) "bmo"
-    else if (u == "TD" or endsWith(u, "TD") or startsWith(u, "TD")) "td"
+    else if (u == "TD" or contains(u, "TD") or endsWith(u, "TD") or startsWith(u, "TD")) "td"
     else if (contains(u, "SCOTIA") or u == "SCO") "scotia"
     else if (u == "CIBC" or startsWith(u, "CIB")) "cibc"
     else "default"
@@ -355,7 +355,7 @@ fun bankBrandKey(b) = do {
     ---
     if (u == "RBC" or contains(u, "ROYAL")) "rbc"
     else if (u == "BMO" or contains(u, "BANK OF MONTREAL") or contains(u, "BMO")) "bmo"
-    else if (u == "TD" or endsWith(u, "TD") or startsWith(u, "TD")) "td"
+    else if (u == "TD" or contains(u, "TD") or endsWith(u, "TD") or startsWith(u, "TD")) "td"
     else if (contains(u, "SCOTIA") or u == "SCO") "scotia"
     else if (u == "CIBC" or startsWith(u, "CIB")) "cibc"
     else "default"
@@ -386,7 +386,8 @@ var techBase = if (!isEmpty(techFromPending)) techFromPending else fallbackTech
 var mergedTech = (techBase ++ tokenFdx) distinctBy ((x) -> upper(x as String))
 var mergedHuman = mergedTech map fdxHuman($)
 var bankName = if (hasPendingBank) (p.bankName as String) else (if (!isEmpty(fallbackBank)) fallbackBank else "External bank")
-var bankBrand = if (!isEmpty(p.bankBrand default "")) (p.bankBrand as String) else bankBrandKey(bankName)
+var pendingBrandRaw = trim(p.bankBrand default "")
+var bankBrand = if (!isEmpty(pendingBrandRaw) and lower(pendingBrandRaw) != "default") (p.bankBrand as String) else bankBrandKey(bankName)
 var bankDisplayName = if (!isEmpty(p.bankDisplayName default "")) (p.bankDisplayName as String) else bankDisplayNameFrom(bankName, bankBrand)
 var scopesCsv = mergedTech joinBy ","
 ---
@@ -606,10 +607,22 @@ output application/json
                 <ee:message>
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+fun bankBrandKey(b) = do {
+    var u = upper(trim(b as String default ""))
+    ---
+    if (u == "RBC" or contains(u, "ROYAL")) "rbc"
+    else if (u == "BMO" or contains(u, "BANK OF MONTREAL") or contains(u, "BMO")) "bmo"
+    else if (u == "TD" or contains(u, "TD") or endsWith(u, "TD") or startsWith(u, "TD")) "td"
+    else if (contains(u, "SCOTIA") or u == "SCO") "scotia"
+    else if (u == "CIBC" or startsWith(u, "CIB")) "cibc"
+    else "default"
+}
 var s = vars.sess
 var at = s.access_token default ""
 var dotParts = at splitBy "."
 var looksLikeJwt = sizeOf(dotParts filter (!isEmpty($))) == 3
+var rawBrand = trim(s.bankBrand default "")
+var bankBrandOut = if (!isEmpty(rawBrand) and lower(rawBrand) != "default") rawBrand else bankBrandKey(s.bankName default "")
 ---
 {
     access_token: s.access_token,
@@ -619,7 +632,7 @@ var looksLikeJwt = sizeOf(dotParts filter (!isEmpty($))) == 3
     session_id: s.session_id,
     bankName: s.bankName,
     bankDisplayName: s.bankDisplayName default s.bankName,
-    bankBrand: s.bankBrand default "default",
+    bankBrand: bankBrandOut,
     requested_scopes: s.requested_scopes,
     scopes_technical: s.scopes_technical default [],
     scopes_human: s.scopes_human default [],

@@ -81,8 +81,17 @@
         );
     }
 
+    /** Server may send bankBrand \"default\"; that is truthy in JS and blocked inferring from bankName. */
+    function effectiveBankBrand(obj) {
+        if (!obj) return 'default';
+        var raw = obj.bankBrand;
+        var s = raw != null && raw !== '' ? String(raw).trim().toLowerCase() : '';
+        if (s && s !== 'default') return s;
+        return bankBrandKey(obj.bankName);
+    }
+
     function normalizeConnectionForSave(obj) {
-        var bankBrand = obj.bankBrand || bankBrandKey(obj.bankName);
+        var bankBrand = effectiveBankBrand(obj);
         var scopesTech = coerceArray(obj.scopesTechnical);
         if (!scopesTech.length && obj.scopes && obj.scopes.length) {
             scopesTech = obj.scopes.map(String);
@@ -311,7 +320,7 @@
         if (!rows) return;
         rows.innerHTML = '';
 
-        var brand = conn.bankBrand || bankBrandKey(conn.bankName);
+        var brand = effectiveBankBrand(conn);
         var tags = coerceArray(conn.scopesHuman).filter(Boolean);
         if (!tags.length) {
             var tech = coerceArray(conn.scopesTechnical);
