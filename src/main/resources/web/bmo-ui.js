@@ -246,7 +246,22 @@
             m.setAttribute('aria-hidden', 'true');
         }
         if (body) body.setAttribute('aria-expanded', 'false');
-        document.body.classList.remove('modal-open');
+        syncModalOpenBodyClass();
+    }
+
+    function syncModalOpenBodyClass() {
+        var conn = document.getElementById('connectionModal');
+        var ext = document.getElementById('externalDetailModal');
+        var cash = document.getElementById('cashBreakdownModal');
+        var open =
+            (conn && conn.classList.contains('is-open')) ||
+            (ext && ext.classList.contains('is-open')) ||
+            (cash && cash.classList.contains('is-open'));
+        if (open) {
+            document.body.classList.add('modal-open');
+        } else {
+            document.body.classList.remove('modal-open');
+        }
     }
 
     function openExternalDetailModal() {
@@ -254,6 +269,7 @@
         if (!conn) return;
 
         window.closeConnectionModal();
+        closeCashBreakdownModal();
 
         var m = document.getElementById('externalDetailModal');
         if (!m) return;
@@ -263,10 +279,32 @@
         m.style.display = 'flex';
         m.classList.add('is-open');
         m.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
+        syncModalOpenBodyClass();
 
         var body = document.getElementById('externalCardBody');
         if (body) body.setAttribute('aria-expanded', 'true');
+    }
+
+    function openCashBreakdownModal() {
+        window.closeConnectionModal();
+        closeExternalDetailModal();
+        var m = document.getElementById('cashBreakdownModal');
+        if (!m) return;
+        m.style.display = 'flex';
+        m.classList.add('is-open');
+        m.setAttribute('aria-hidden', 'false');
+        syncModalOpenBodyClass();
+        loadAccountData();
+    }
+
+    function closeCashBreakdownModal() {
+        var m = document.getElementById('cashBreakdownModal');
+        if (m) {
+            m.classList.remove('is-open');
+            m.style.display = 'none';
+            m.setAttribute('aria-hidden', 'true');
+        }
+        syncModalOpenBodyClass();
     }
 
     function populateExternalDetailModal(conn) {
@@ -467,7 +505,7 @@
                 tb.textContent = '$' + totalBalance.toLocaleString('en-CA') + ' CAD';
             }
             if (cashDesc) {
-                cashDesc.textContent = 'Total across ' + accounts.length + ' BMO demo accounts';
+                cashDesc.textContent = 'Total across all linked accounts';
             }
         }
     }
@@ -480,9 +518,10 @@
         var el = document.getElementById('connectionModal');
         if (!el) return;
         closeExternalDetailModal();
+        closeCashBreakdownModal();
         el.style.display = 'flex';
         el.classList.add('is-open');
-        document.body.classList.add('modal-open');
+        syncModalOpenBodyClass();
         var bs = document.getElementById('bankSelection');
         var cs = document.getElementById('connectionStatus');
         if (bs) bs.style.display = 'block';
@@ -494,9 +533,7 @@
         if (!el) return;
         el.classList.remove('is-open');
         el.style.display = 'none';
-        if (!document.getElementById('externalDetailModal') || !document.getElementById('externalDetailModal').classList.contains('is-open')) {
-            document.body.classList.remove('modal-open');
-        }
+        syncModalOpenBodyClass();
     };
 
     window.selectBank = function (bankName) {
@@ -694,6 +731,11 @@
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
+                var cashM = document.getElementById('cashBreakdownModal');
+                if (cashM && cashM.classList.contains('is-open')) {
+                    closeCashBreakdownModal();
+                    return;
+                }
                 closeAllHeaderDropdowns();
             }
         });
@@ -713,6 +755,37 @@
                 if (e.target.id === 'externalDetailModal') {
                     closeExternalDetailModal();
                 }
+            });
+        }
+
+        var cashModal = document.getElementById('cashBreakdownModal');
+        if (cashModal) {
+            cashModal.addEventListener('click', function (e) {
+                if (e.target.id === 'cashBreakdownModal') {
+                    closeCashBreakdownModal();
+                }
+            });
+        }
+
+        var cashClose = document.getElementById('cashBreakdownCloseBtn');
+        if (cashClose) {
+            cashClose.addEventListener('click', function () {
+                closeCashBreakdownModal();
+            });
+        }
+
+        var cashRefresh = document.getElementById('cashRefreshBtn');
+        if (cashRefresh) {
+            cashRefresh.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openCashBreakdownModal();
+            });
+        }
+
+        var cashDrillSyncTd = document.getElementById('cashDrillSyncTdBtn');
+        if (cashDrillSyncTd) {
+            cashDrillSyncTd.addEventListener('click', function () {
+                showNotification('TD balances sync queued (demo).', 'success');
             });
         }
 

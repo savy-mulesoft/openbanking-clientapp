@@ -535,6 +535,46 @@
             margin-top: 0;
         }
 
+        .card-cash-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .card-cash-head .card-label {
+            margin-bottom: 0;
+        }
+
+        .card-refresh-btn {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            margin: -4px -4px 0 0;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 112, 120, 0.32);
+            background: rgba(0, 112, 120, 0.07);
+            color: var(--bmo-teal-dark);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .card-refresh-btn:active {
+            transform: scale(0.94);
+        }
+
+        @media (hover: hover) {
+            .card-refresh-btn:hover {
+                background: rgba(0, 112, 120, 0.14);
+                border-color: rgba(0, 112, 120, 0.45);
+            }
+        }
+
         .btn-primary {
             width: 100%;
             min-height: var(--tap-size);
@@ -895,6 +935,142 @@
 
         .modal--external-detail { position: relative; max-width: 440px; }
 
+        .modal--cash-drill {
+            position: relative;
+            max-width: 440px;
+            max-height: min(88dvh, 720px);
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 20px;
+        }
+
+        .modal--cash-drill h3 {
+            padding-right: 40px;
+        }
+
+        .cash-drill-lead {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.45;
+        }
+
+        .cash-drill-scroll {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            padding-right: 2px;
+        }
+
+        .cash-drill-bank__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .cash-drill-bank__title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .cash-drill-brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            background: #53b700;
+            flex-shrink: 0;
+        }
+
+        .cash-drill-badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 100px;
+            background: rgba(0, 112, 120, 0.12);
+            color: var(--bmo-teal-dark);
+        }
+
+        .cash-drill-badge--ext {
+            background: rgba(83, 183, 0, 0.14);
+            color: #2d6a0b;
+        }
+
+        .cash-drill-box {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: rgba(12, 35, 64, 0.02);
+            overflow: hidden;
+        }
+
+        .cash-drill-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .cash-drill-row:last-child {
+            border-bottom: none;
+        }
+
+        .cash-drill-row__name {
+            color: var(--text);
+            font-weight: 500;
+            min-width: 0;
+        }
+
+        .cash-drill-row__amt {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            flex-shrink: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .cash-drill-sync {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(83, 183, 0, 0.45);
+            background: rgba(83, 183, 0, 0.1);
+            color: #25630a;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        .cash-drill-sync:active {
+            transform: scale(0.98);
+        }
+
+        @media (hover: hover) {
+            .cash-drill-sync:hover {
+                background: rgba(83, 183, 0, 0.16);
+            }
+        }
+
         .modal-close-btn {
             position: absolute;
             top: 14px;
@@ -1067,10 +1243,20 @@
                     <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship—all in one place.</p>
 
                     <div class="cards">
-                        <div class="card">
-                            <div class="card-label">Cash</div>
+                        <div class="card" id="cashCard">
+                            <div class="card-cash-head">
+                                <div class="card-label">Cash</div>
+                                <button type="button" class="card-refresh-btn" id="cashRefreshBtn" aria-label="View cash breakdown and refresh balances">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                        <path d="M3 3v5h5"/>
+                                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                        <path d="M16 21h5v-5"/>
+                                    </svg>
+                                </button>
+                            </div>
                             <div class="card-value" id="totalBalance">—</div>
-                            <div class="card-description" id="cashCardDesc">Connect a bank to populate</div>
+                            <div class="card-description" id="cashCardDesc">Total across all linked accounts</div>
                         </div>
                         <div class="card" id="externalConnectionsCard">
                             <div class="card-external-head">
@@ -1181,6 +1367,49 @@
                 <div class="status-icon status-loading" id="statusIcon">⏳</div>
                 <h3 id="statusTitle">Connecting…</h3>
                 <p id="statusMessage">Securely authenticating with your bank…</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="cashBreakdownModal" role="dialog" aria-modal="true" aria-labelledby="cashBreakdownTitle" aria-hidden="true">
+        <div class="modal modal--cash-drill">
+            <button type="button" class="modal-close-btn" id="cashBreakdownCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <h3 id="cashBreakdownTitle">Cash breakdown</h3>
+            <p class="cash-drill-lead">Primary and linked cash balances (demo drill-down).</p>
+            <div class="cash-drill-scroll">
+                <section class="cash-drill-bank" aria-labelledby="cashBmoHeading">
+                    <div class="cash-drill-bank__head">
+                        <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> BMO <span class="cash-drill-badge">Primary</span></span>
+                    </div>
+                    <div class="cash-drill-box">
+                        <div class="cash-drill-row">
+                            <span class="cash-drill-row__name">Premium Checking (****1234)</span>
+                            <span class="cash-drill-row__amt">$2,500.75</span>
+                        </div>
+                        <div class="cash-drill-row">
+                            <span class="cash-drill-row__name">Savings Builder (****5678)</span>
+                            <span class="cash-drill-row__amt">$15,750.20</span>
+                        </div>
+                    </div>
+                </section>
+                <section class="cash-drill-bank" aria-labelledby="cashTdHeading">
+                    <div class="cash-drill-bank__head">
+                        <span class="cash-drill-bank__title" id="cashTdHeading"><span class="cash-drill-brand-dot" aria-hidden="true"></span> TD Bank <span class="cash-drill-badge cash-drill-badge--ext">External</span></span>
+                        <button type="button" class="cash-drill-sync" id="cashDrillSyncTdBtn">
+                            <span aria-hidden="true">↻</span> Sync Data
+                        </button>
+                    </div>
+                    <div class="cash-drill-box">
+                        <div class="cash-drill-row">
+                            <span class="cash-drill-row__name">Everyday Checking (****9012)</span>
+                            <span class="cash-drill-row__amt">$1,200.00</span>
+                        </div>
+                        <div class="cash-drill-row">
+                            <span class="cash-drill-row__name">High Interest Savings (****3456)</span>
+                            <span class="cash-drill-row__amt">$3,249.55</span>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
