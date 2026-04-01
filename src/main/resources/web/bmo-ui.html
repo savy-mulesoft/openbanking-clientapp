@@ -58,7 +58,7 @@
                 margin-top: env(safe-area-inset-top, 12px);
                 margin-bottom: env(safe-area-inset-bottom, 12px);
                 border-radius: 24px;
-                overflow: hidden;
+                overflow: visible;
                 min-height: calc(100dvh - 24px);
             }
         }
@@ -67,6 +67,11 @@
             background: linear-gradient(180deg, var(--bmo-navy) 0%, #0f2d52 100%);
             color: var(--bmo-white);
             padding: calc(12px + env(safe-area-inset-top)) 20px 16px;
+            overflow: visible;
+        }
+
+        @media (max-width: 380px) {
+            .app-header { padding-left: 14px; padding-right: 14px; }
         }
 
         .header-row {
@@ -141,23 +146,24 @@
         .header-toolbar {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 10px;
+            justify-content: flex-end;
+            gap: 8px;
             margin-top: 14px;
             padding-top: 14px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
+            flex-wrap: wrap;
         }
 
         .header-toolbar__spacer {
-            flex: 1;
-            min-width: 8px;
+            display: none;
         }
 
         .header-toolbar__cluster {
             display: flex;
             align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .header-dropdown-anchor {
@@ -191,6 +197,17 @@
         }
 
         .header-ql-btn svg { flex-shrink: 0; opacity: 0.9; }
+
+        @media (max-width: 380px) {
+            .header-ql-btn {
+                padding: 8px 10px;
+                font-size: 12px;
+                gap: 5px;
+            }
+            .header-notif-btn {
+                padding: 8px 10px;
+            }
+        }
         .header-ql-btn .header-ql-chevron {
             transition: transform 0.35s var(--ease-spring);
             margin-left: -2px;
@@ -265,10 +282,9 @@
         .header-user-btn {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            max-width: min(160px, 42vw);
-            padding: 5px 6px 5px 5px;
-            padding-right: 10px;
+            gap: 8px;
+            max-width: min(160px, 38vw);
+            padding: 5px 10px 5px 5px;
             border-radius: 100px;
             border: 1px solid rgba(255, 255, 255, 0.22);
             background: rgba(255, 255, 255, 0.1);
@@ -279,6 +295,17 @@
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
             transition: background 0.2s, transform 0.15s var(--ease-spring);
+        }
+
+        @media (max-width: 380px) {
+            .header-user-btn {
+                max-width: none;
+                padding: 5px;
+            }
+            .header-user-btn__name,
+            .header-user-btn .header-user-chevron {
+                display: none;
+            }
         }
 
         .header-user-btn:active { transform: scale(0.98); }
@@ -330,6 +357,15 @@
             box-shadow: var(--shadow-md);
             z-index: 60;
             animation: dropdownIn 0.28s var(--ease-spring) both;
+        }
+
+        @media (max-width: 420px) {
+            .header-dropdown {
+                right: auto;
+                left: 0;
+                min-width: 200px;
+                max-width: calc(100vw - 40px);
+            }
         }
 
         @keyframes dropdownIn {
@@ -405,7 +441,17 @@
         }
 
         .app-main {
-            padding: 20px 18px calc(100px + env(safe-area-inset-bottom));
+            padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
+        }
+
+        @media (max-width: 380px) {
+            .app-main { padding-left: 12px; padding-right: 12px; }
+            .cards { gap: 8px; }
+            .card { padding: 14px 12px; }
+            .card--transactions { margin-top: 16px; }
+            .overview h2 { font-size: 22px; }
+            .overview > p.lead,
+            .card--transactions p.lead { font-size: 14px; }
         }
 
         @media (min-width: 900px) {
@@ -488,6 +534,11 @@
             letter-spacing: -0.02em;
             color: var(--text);
             font-variant-numeric: tabular-nums;
+            word-break: break-word;
+        }
+
+        @media (max-width: 380px) {
+            .card-value { font-size: 20px; }
         }
 
         .card-description {
@@ -742,57 +793,7 @@
             color: #b42318;
         }
 
-        .bottom-bar {
-            display: none;
-            position: fixed;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 0;
-            width: 100%;
-            max-width: 430px;
-            padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
-            background: rgba(255, 255, 255, 0.88);
-            -webkit-backdrop-filter: blur(16px);
-            backdrop-filter: blur(16px);
-            border-top: 1px solid var(--border);
-            z-index: 50;
-            box-shadow: 0 -4px 24px rgba(12, 35, 64, 0.08);
-        }
-
-        @media (max-width: 899px) {
-            .bottom-bar { display: block; }
-        }
-
-        @media (min-width: 900px) {
-            .bottom-bar { max-width: 1100px; }
-        }
-
-        .bottom-bar__btn {
-            width: 100%;
-            min-height: var(--tap-size);
-            border: none;
-            border-radius: var(--radius-md);
-            background: linear-gradient(180deg, var(--bmo-teal) 0%, var(--bmo-teal-dark) 100%);
-            color: var(--bmo-white);
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 14px rgba(0, 112, 120, 0.35);
-            transition: transform 0.2s var(--ease-spring);
-        }
-
-        .bottom-bar__btn:active { transform: scale(0.985); }
-
-        .bottom-bar__icon {
-            font-size: 20px;
-            font-weight: 400;
-            line-height: 1;
-            opacity: 0.95;
-        }
+        /* bottom-bar removed — connect via + button or Quick Links */
 
         .modal-overlay {
             display: none;
@@ -1521,12 +1522,7 @@
         </main>
     </div>
 
-    <nav class="bottom-bar" aria-label="Primary actions">
-        <button type="button" class="bottom-bar__btn" onclick="openConnectionModal()">
-            <span class="bottom-bar__icon" aria-hidden="true">＋</span>
-            Connect external bank
-        </button>
-    </nav>
+    <!-- Bottom bar removed: Connect is accessible via + button and Quick Links -->
 
     <div class="modal-overlay" id="connectionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal">
@@ -1649,6 +1645,6 @@
 
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js?v=20260401c"></script>
+    <script defer="defer" src="/web/bmo-ui.js?v=20260401d"></script>
 </body>
 </html>
