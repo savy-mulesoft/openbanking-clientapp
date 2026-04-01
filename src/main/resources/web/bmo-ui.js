@@ -609,15 +609,16 @@
 
     function disconnectExternal() {
         localStorage.removeItem(LS_KEY);
-        fetch('/api/oauth/disconnect', { method: 'POST' }).catch(function () { /* ignore */ });
-        closeExternalDetailModal();
-        renderExternalConnections();
         _tdAccountsData = [];
         _tdTxnsRows = [];
-        refreshCashBalances();
+        closeExternalDetailModal();
+        renderExternalConnections();
+        updateCashTotalDisplay();
+        renderCashBreakdown();
         hideExtTab();
         appendTdTxnRows(document.getElementById('txnListExt'), []);
         showNotification('Connection removed. Connect again to link your bank.', 'success');
+        fetch('/api/oauth/disconnect', { method: 'POST' }).catch(function () { /* ignore */ });
     }
 
     function handleOAuthReturn() {
@@ -1667,6 +1668,18 @@
                 }
             });
         }
+
+        function wireInfoBtn(btnId, tipId) {
+            var btn = document.getElementById(btnId);
+            var tip = document.getElementById(tipId);
+            if (!btn || !tip) return;
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                tip.classList.toggle('is-visible');
+            });
+        }
+        wireInfoBtn('overviewInfoBtn', 'overviewInfoTip');
+        wireInfoBtn('txnInfoBtn', 'txnInfoTip');
 
     }
 

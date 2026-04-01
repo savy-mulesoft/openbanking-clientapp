@@ -148,10 +148,9 @@
             align-items: center;
             justify-content: flex-end;
             gap: 8px;
-            margin-top: 14px;
-            padding-top: 14px;
+            margin-top: 12px;
+            padding-top: 12px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
-            flex-wrap: wrap;
         }
 
         .header-toolbar__spacer {
@@ -162,8 +161,6 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
         }
 
         .header-dropdown-anchor {
@@ -198,15 +195,18 @@
 
         .header-ql-btn svg { flex-shrink: 0; opacity: 0.9; }
 
-        @media (max-width: 380px) {
+        @media (max-width: 430px) {
             .header-ql-btn {
-                padding: 8px 10px;
+                padding: 7px 10px;
                 font-size: 12px;
                 gap: 5px;
             }
+            .header-ql-btn .header-ql-icon { display: none; }
             .header-notif-btn {
-                padding: 8px 10px;
+                padding: 7px 10px;
+                gap: 4px;
             }
+            .header-notif-btn .header-notif-chevron { display: none; }
         }
         .header-ql-btn .header-ql-chevron {
             transition: transform 0.35s var(--ease-spring);
@@ -297,10 +297,11 @@
             transition: background 0.2s, transform 0.15s var(--ease-spring);
         }
 
-        @media (max-width: 380px) {
+        @media (max-width: 430px) {
             .header-user-btn {
                 max-width: none;
                 padding: 5px;
+                gap: 0;
             }
             .header-user-btn__name,
             .header-user-btn .header-user-chevron {
@@ -444,14 +445,12 @@
             padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
         }
 
-        @media (max-width: 380px) {
-            .app-main { padding-left: 12px; padding-right: 12px; }
-            .cards { gap: 8px; }
-            .card { padding: 14px 12px; }
-            .card--transactions { margin-top: 16px; }
-            .overview h2 { font-size: 22px; }
-            .overview > p.lead,
-            .card--transactions p.lead { font-size: 14px; }
+        @media (max-width: 430px) {
+            .app-main { padding-left: 14px; padding-right: 14px; }
+            .cards { gap: 10px; }
+            .card { padding: 16px 14px; border-radius: 16px; }
+            .card--transactions { margin-top: 16px; border-radius: 16px; }
+            .section-head h2 { font-size: 22px; }
         }
 
         @media (min-width: 900px) {
@@ -463,24 +462,72 @@
             }
         }
 
-        .overview h2 {
-            font-size: 26px;
+        .section-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .section-head h2 {
+            font-size: 24px;
             font-weight: 600;
             letter-spacing: -0.03em;
-            margin-bottom: 8px;
             color: var(--text);
         }
+
+        .info-btn {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: var(--bmo-white);
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+            font-family: Georgia, serif;
+            font-style: italic;
+            line-height: 1;
+        }
+
+        .info-btn:active { transform: scale(0.94); }
+        @media (hover: hover) {
+            .info-btn:hover { background: rgba(0, 112, 120, 0.08); color: var(--bmo-teal); }
+        }
+
+        .info-tooltip {
+            display: none;
+            background: var(--bmo-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-md);
+            padding: 12px 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            animation: fadeInUp 0.2s var(--ease-spring) both;
+        }
+
+        .info-tooltip.is-visible { display: block; }
 
         .overview > p.lead,
         .card--transactions p.lead {
             color: var(--text-muted);
-            font-size: 15px;
+            font-size: 14px;
             line-height: 1.45;
             max-width: none;
         }
 
         .overview > p.lead {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .grid {
@@ -529,16 +576,18 @@
         }
 
         .card-value {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
             color: var(--text);
             font-variant-numeric: tabular-nums;
-            word-break: break-word;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         @media (max-width: 380px) {
-            .card-value { font-size: 20px; }
+            .card-value { font-size: 19px; }
         }
 
         .card-description {
@@ -1386,7 +1435,10 @@
                 <div class="header-row">
                     <div class="logo">
                         <div class="logo-icon" role="img" aria-label="BMO">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" loading="lazy" />
+                            <svg viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg" width="42" height="42" aria-hidden="true">
+                                <rect width="42" height="42" rx="8" fill="#0075BE"/>
+                                <text x="50%" y="54%" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="14" font-weight="800" letter-spacing="0.5">BMO</text>
+                            </svg>
                         </div>
                         <div class="logo-text">
                             <h1>Open Banking</h1>
@@ -1401,7 +1453,7 @@
                     <div class="header-toolbar__cluster">
                         <div class="header-dropdown-anchor">
                             <button type="button" class="header-ql-btn" id="quickLinksToggle" aria-expanded="false" aria-haspopup="true" aria-controls="quickLinksDropdown">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                <svg class="header-ql-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                                 </svg>
@@ -1456,8 +1508,11 @@
         <main class="app-main">
             <div class="grid">
                 <section class="overview">
-                    <h2>Your overview</h2>
-                    <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship, all in one place.</p>
+                    <div class="section-head">
+                        <h2>Overview</h2>
+                        <button type="button" class="info-btn" id="overviewInfoBtn" aria-label="About overview">i</button>
+                    </div>
+                    <div class="info-tooltip" id="overviewInfoTip">Link external accounts to see balances and transactions alongside your BMO relationship, all in one place.</div>
 
                     <div class="cards">
                         <div class="card card--cash-tappable" id="cashCard">
@@ -1473,7 +1528,7 @@
                                 </button>
                             </div>
                             <div class="card-value" id="totalBalance">—</div>
-                            <div class="card-description" id="cashCardDesc">Total across all linked accounts</div>
+                            <div class="card-description" id="cashCardDesc">BMO + linked balances</div>
                         </div>
                         <div class="card" id="externalConnectionsCard">
                             <div class="card-external-head">
@@ -1493,7 +1548,7 @@
 
                     <div class="card card--transactions" aria-labelledby="transactionsSectionLabel">
                         <div class="card-cash-head">
-                            <div class="card-label" id="transactionsSectionLabel">Transactions</div>
+                            <div class="card-label" id="transactionsSectionLabel" style="display:flex;align-items:center;gap:6px;">Transactions <button type="button" class="info-btn" id="txnInfoBtn" aria-label="About transactions" style="width:22px;height:22px;font-size:12px;">i</button></div>
                             <button type="button" class="card-refresh-btn" id="txnRefreshBtn" aria-label="Refresh transactions">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -1503,7 +1558,7 @@
                                 </svg>
                             </button>
                         </div>
-                        <p class="lead">360 Account transactions, external account transactions appear as a separate tab when your connection includes the Transactions permissions.</p>
+                        <div class="info-tooltip" id="txnInfoTip">360 Account transactions. External account transactions appear as a separate tab when your connection includes the Transactions permission.</div>
                         <div class="txn-tabs" role="tablist" aria-label="Transaction source">
                             <button type="button" class="txn-tab" role="tab" id="txnTabBmo" aria-selected="true" aria-controls="txnPanelBmo" data-txn-tab="bmo">BMO</button>
                             <button type="button" class="txn-tab" role="tab" id="txnTabExt" hidden aria-selected="false" aria-controls="txnPanelExt" data-txn-tab="ext"></button>
@@ -1645,6 +1700,6 @@
 
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js?v=20260401d"></script>
+    <script defer="defer" src="/web/bmo-ui.js?v=20260401e"></script>
 </body>
 </html>
