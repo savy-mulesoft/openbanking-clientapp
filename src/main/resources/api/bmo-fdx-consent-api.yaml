@@ -69,7 +69,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/Error'
+                $ref: '#/components/schemas/Error'
 
   /callback:
     get:
@@ -115,13 +115,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/OAuthSessionResponse'
+                $ref: '#/components/schemas/OAuthSessionResponse'
         '404':
           description: No active session
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/Error'
+                $ref: '#/components/schemas/Error'
 
   /api/oauth/disconnect:
     post:
@@ -146,3 +146,47 @@ paths:
                   message:
                     type: string
                     example: External bank connection removed
+
+components:
+  schemas:
+    OAuthSessionResponse:
+      type: object
+      title: OAuth Session
+      description: Active OAuth session data from the Object Store
+      properties:
+        access_token:
+          type: string
+        id_token:
+          type: string
+        token_type:
+          type: string
+        expires_at:
+          type: string
+        session_id:
+          type: string
+        bankName:
+          type: string
+        bankDisplayName:
+          type: string
+        bankBrand:
+          type: string
+        requested_scopes:
+          type: string
+        scopes_technical:
+          type: array
+          items:
+            type: string
+        scopes_human:
+          type: array
+          items:
+            type: string
+        access_token_format:
+          type: string
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

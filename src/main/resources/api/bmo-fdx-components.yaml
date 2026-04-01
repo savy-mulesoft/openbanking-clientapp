@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: BMO FDX Shared Components
+  title: FDX Shared Components
   description: |
-    Shared FDX-aligned schemas, parameters, headers, and responses used across
-    the BMO Open Banking API specs (Core, Consent, Aggregator).
+    Bank-agnostic FDX-aligned schemas, parameters, headers, and responses.
+    Any data holder (BMO, TD, RBC, etc.) can reference these types via `$ref`.
 
     Follows the FDX `fdxapi.components.yaml` pattern — a single source of truth
-    for data types that multiple specs reference via `$ref`.
+    for data types that multiple API specs reference.
   version: 1.0.0
   contact:
     name: Open Banking PoC Team
@@ -203,83 +203,6 @@ components:
             $ref: '#/components/schemas/Transaction'
         page:
           $ref: '#/components/schemas/PageMetadata'
-
-    OAuthSessionResponse:
-      type: object
-      title: OAuth Session
-      description: Active OAuth session data from the Object Store
-      properties:
-        access_token:
-          type: string
-        id_token:
-          type: string
-        token_type:
-          type: string
-        expires_at:
-          type: string
-        session_id:
-          type: string
-        bankName:
-          type: string
-        bankDisplayName:
-          type: string
-        bankBrand:
-          type: string
-        requested_scopes:
-          type: string
-        scopes_technical:
-          type: array
-          items:
-            type: string
-        scopes_human:
-          type: array
-          items:
-            type: string
-        access_token_format:
-          type: string
-
-    BalanceResponse:
-      type: object
-      title: Balance Response
-      description: Aggregated balance with OAuth context
-      properties:
-        totalBalance:
-          type: object
-          properties:
-            amount:
-              type: number
-            currency:
-              type: string
-            lastUpdated:
-              type: string
-              format: date-time
-        accountBreakdown:
-          type: array
-          items:
-            $ref: '#/components/schemas/DepositAccount'
-        oauthStatus:
-          type: object
-          properties:
-            authenticated:
-              type: boolean
-            sessionId:
-              type: string
-            tokenPresent:
-              type: boolean
-            dataSource:
-              type: string
-
-    BalanceFallbackResponse:
-      type: object
-      title: Balance Fallback
-      description: Returned when no OAuth session exists
-      properties:
-        error:
-          type: string
-        message:
-          type: string
-        fallbackData:
-          type: object
 
     Error:
       type: object

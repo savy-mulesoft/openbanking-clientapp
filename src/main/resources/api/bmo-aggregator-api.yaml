@@ -52,13 +52,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/AccountsResponse'
+                $ref: '#/components/schemas/AccountsResponse'
         '401':
-          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+          $ref: '#/components/responses/Forbidden'
         '502':
-          $ref: './bmo-fdx-components.yaml#/components/responses/BadGateway'
+          $ref: '#/components/responses/BadGateway'
 
   /api/td/accounts/{accountId}/transactions:
     get:
@@ -70,20 +70,20 @@ paths:
         Proxies to `GET /fdx/v6/accounts/{accountId}/transactions` on the TD
         resource server. Requires `TRANSACTIONS` scope in the stored JWT.
       parameters:
-        - $ref: './bmo-fdx-components.yaml#/components/parameters/AccountIdPath'
+        - $ref: '#/components/parameters/AccountIdPath'
       responses:
         '200':
           description: FDX transactions response from TD
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/TransactionsResponse'
+                $ref: '#/components/schemas/TransactionsResponse'
         '401':
-          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+          $ref: '#/components/responses/Forbidden'
         '502':
-          $ref: './bmo-fdx-components.yaml#/components/responses/BadGateway'
+          $ref: '#/components/responses/BadGateway'
 
   /api/balance:
     get:
@@ -102,13 +102,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/BalanceResponse'
+                $ref: '#/components/schemas/BalanceResponse'
         '401':
           description: No valid OAuth tokens — fallback data returned
           content:
             application/json:
               schema:
-                $ref: './bmo-fdx-components.yaml#/components/schemas/BalanceFallbackResponse'
+                $ref: '#/components/schemas/BalanceFallbackResponse'
 
   /api/clear-cache:
     post:
@@ -204,3 +204,153 @@ components:
       description: |
         OAuth 2.0 access token (JWT) stored server-side in the Object Store.
         Obtained via Auth0 authorization code flow. Audience: urn:fdx:tdbank.
+
+  schemas:
+    BalanceResponse:
+      type: object
+      title: Balance Response
+      description: Aggregated balance with OAuth context
+      properties:
+        totalBalance:
+          type: object
+          properties:
+            amount:
+              type: number
+            currency:
+              type: string
+            lastUpdated:
+              type: string
+              format: date-time
+        accountBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositAccount'
+        oauthStatus:
+          type: object
+          properties:
+            authenticated:
+              type: boolean
+            sessionId:
+              type: string
+            tokenPresent:
+              type: boolean
+            dataSource:
+              type: string
+
+    BalanceFallbackResponse:
+      type: object
+      title: Balance Fallback
+      description: Returned when no OAuth session exists
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        fallbackData:
+          type: object
+
+    DepositAccount:
+      type: object
+      title: Deposit Account
+      description: FDX Core v6 account representation
+      required: [accountCategory, accountId]
+      properties:
+        accountCategory:
+          type: string
+          enum: [DEPOSIT_ACCOUNT, LOC_ACCOUNT]
+        accountId:
+          type: string
+        nickname:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED, NEGATIVE_CURRENT_BALANCE]
+        currency:
+          type: string
+          example: CAD
+        balanceAsOf:
+          type: string
+          format: date-time
+        currentBalance:
+          type: number
+          format: double
+        availableBalance:
+          type: number
+          format: double
+
+    AccountsResponse:
+      type: object
+      title: Accounts Response
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositAccount'
+        page:
+          type: object
+          properties:
+            total:
+              type: integer
+
+    TransactionsResponse:
+      type: object
+      title: Transactions Response
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            type: object
+        page:
+          type: object
+          properties:
+            total:
+              type: integer
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+  parameters:
+    AccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      description: FDX account identifier
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "401"
+            message: "Unauthorized — invalid or missing access token"
+    Forbidden:
+      description: Token valid but insufficient FDX scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "403"
+            message: "Forbidden — required FDX scope not granted"
+    BadGateway:
+      description: Upstream resource server unreachable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "502"
+            message: "External resource server unreachable"

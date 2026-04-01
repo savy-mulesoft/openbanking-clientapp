@@ -1,0 +1,400 @@
+openapi: 3.0.3
+info:
+  title: FDX Core Banking API
+  description: |
+    Bank-agnostic FDX Core API v6 contract. Any FDX-compliant data holder
+    implements this spec — bank identity comes from the server URL and
+    JWT audience, not the API paths.
+
+    **Operations:**
+    - `searchForAccounts` — List consented deposit accounts
+    - `getAccount` — Retrieve a single account detail
+    - `searchForAccountTransactions` — List transactions for an account
+
+    **Security:** OAuth 2.0 bearer JWT with FDX scopes.
+    - `ACCOUNT_BASIC` — required for account endpoints
+    - `TRANSACTIONS` — required for transaction endpoints
+
+    **FAPI Compliance:** Supports `x-fapi-interaction-id` header for
+    end-to-end request tracing per FAPI 1.0 Advanced.
+  version: 1.0.0
+  contact:
+    name: Open Banking PoC Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8081/fdx/v6
+    description: Local development (Mule standalone)
+  - url: https://{bank}.example.com/fdx/v6
+    description: Production pattern — replace {bank} with actual data holder host
+
+tags:
+  - name: Account Information
+    description: Search and view customer accounts (FDX Core § Account Information)
+  - name: Account Transactions
+    description: Search and view account transactions (FDX Core § Account Transactions)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /accounts:
+    get:
+      operationId: searchForAccounts
+      tags:
+        - Account Information
+      summary: Search for accounts
+      description: |
+        Returns consented deposit accounts for the resource owner associated
+        with the bearer token. Mirrors the FDX `searchForAccounts` operation.
+        The bearer token MUST contain the `ACCOUNT_BASIC` scope; otherwise 403.
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - name: accountIds
+          in: query
+          description: Comma-separated list of account identifiers to filter
+          required: false
+          schema:
+            type: string
+            example: "ACCT-001,ACCT-002"
+      responses:
+        '200':
+          description: Accounts found
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsResponse'
+              example:
+                accounts:
+                  - accountCategory: DEPOSIT_ACCOUNT
+                    accountId: "ACCT-001"
+                    nickname: "Everyday Chequing (****0001)"
+                    status: OPEN
+                    currency: CAD
+                    balanceAsOf: "2026-03-31T08:00:00.000Z"
+                    currentBalance: 2500.75
+                    availableBalance: 2450.00
+                  - accountCategory: DEPOSIT_ACCOUNT
+                    accountId: "ACCT-002"
+                    nickname: "High Interest Savings (****0002)"
+                    status: OPEN
+                    currency: CAD
+                    balanceAsOf: "2026-03-31T08:00:00.000Z"
+                    currentBalance: 15750.20
+                    availableBalance: 15750.20
+                page:
+                  total: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /accounts/{accountId}:
+    get:
+      operationId: getAccount
+      tags:
+        - Account Information
+      summary: Get account detail
+      description: |
+        Returns full details for a single consented account.
+        Mirrors the FDX `getAccount` operation.
+        Requires `ACCOUNT_BASIC` scope.
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: Account details
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositAccount'
+              example:
+                accountCategory: DEPOSIT_ACCOUNT
+                accountId: "ACCT-001"
+                nickname: "Everyday Chequing (****0001)"
+                status: OPEN
+                currency: CAD
+                balanceAsOf: "2026-03-31T08:00:00.000Z"
+                currentBalance: 2500.75
+                availableBalance: 2450.00
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}/transactions:
+    get:
+      operationId: searchForAccountTransactions
+      tags:
+        - Account Transactions
+      summary: Search for account transactions
+      description: |
+        Returns paginated transactions for the specified account.
+        Mirrors the FDX `searchForAccountTransactions` operation.
+        The bearer token MUST contain the `TRANSACTIONS` scope; otherwise 403.
+      parameters:
+        - $ref: '#/components/parameters/FapiInteractionId'
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: startTime
+          in: query
+          description: ISO 8601 inclusive start filter on posted time
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2026-03-01T00:00:00.000Z"
+        - name: endTime
+          in: query
+          description: ISO 8601 inclusive end filter on posted time
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2026-03-31T23:59:59.999Z"
+        - name: offset
+          in: query
+          description: Opaque cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of transactions to return
+          required: false
+          schema:
+            type: integer
+            default: 25
+            maximum: 1000
+      responses:
+        '200':
+          description: Transactions page
+          headers:
+            x-fapi-interaction-id:
+              $ref: '#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsResponse'
+              example:
+                transactions:
+                  - accountCategory: DEPOSIT_ACCOUNT
+                    accountId: "ACCT-001"
+                    transactionId: "TXN-001"
+                    postedTimestamp: "2026-03-28T14:22:00.000Z"
+                    description: "Direct Deposit — Employer Corp"
+                    debitCreditMemo: CREDIT
+                    amount: 3250.00
+                    payee: "Employer Corp"
+                  - accountCategory: DEPOSIT_ACCOUNT
+                    accountId: "ACCT-001"
+                    transactionId: "TXN-002"
+                    postedTimestamp: "2026-03-29T09:15:00.000Z"
+                    description: "Interac e-Transfer to J. Smith"
+                    debitCreditMemo: DEBIT
+                    amount: 150.00
+                    payee: "J. Smith"
+                page:
+                  total: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth 2.0 access token (JWT) with FDX audience and scope claims.
+        Issued by the identity provider, validated via JWKS by the API gateway.
+
+  headers:
+    FapiInteractionId:
+      description: FAPI interaction ID for end-to-end request tracing
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    FapiInteractionId:
+      name: x-fapi-interaction-id
+      in: header
+      required: false
+      description: Unique identifier for the API interaction (FAPI standard)
+      schema:
+        type: string
+        format: uuid
+    AccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      description: FDX account identifier
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token (JWT validation failed)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "401"
+            message: "Unauthorized — invalid or missing access token"
+    Forbidden:
+      description: Token valid but insufficient FDX scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "403"
+            message: "Forbidden — required FDX scope not granted"
+    NotFound:
+      description: Account or resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "404"
+            message: "Account not found"
+
+  schemas:
+    DepositAccount:
+      type: object
+      title: Deposit Account
+      description: FDX Core v6 account representation
+      required: [accountCategory, accountId]
+      properties:
+        accountCategory:
+          type: string
+          enum: [DEPOSIT_ACCOUNT, LOC_ACCOUNT]
+          description: FDX account category
+        accountId:
+          type: string
+          description: Unique account identifier
+        nickname:
+          type: string
+          description: Human-readable account label
+        status:
+          type: string
+          enum: [OPEN, CLOSED, NEGATIVE_CURRENT_BALANCE]
+          description: Account status
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: CAD
+        balanceAsOf:
+          type: string
+          format: date-time
+          description: Timestamp of last balance update
+        currentBalance:
+          type: number
+          format: double
+          description: Current ledger balance
+        availableBalance:
+          type: number
+          format: double
+          description: Available funds
+
+    Transaction:
+      type: object
+      title: Transaction
+      description: FDX Core v6 transaction representation
+      required: [transactionId, accountId, postedTimestamp, amount, debitCreditMemo]
+      properties:
+        accountCategory:
+          type: string
+          description: FDX account category
+          example: DEPOSIT_ACCOUNT
+        accountId:
+          type: string
+          description: Account the transaction belongs to
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+        postedTimestamp:
+          type: string
+          format: date-time
+          description: Date/time the transaction was posted
+        description:
+          type: string
+          description: Human-readable transaction description
+        debitCreditMemo:
+          type: string
+          enum: [DEBIT, CREDIT]
+          description: Indicates whether the transaction is a debit or credit
+        amount:
+          type: number
+          format: double
+          description: Transaction amount (always positive; sign indicated by debitCreditMemo)
+        payee:
+          type: string
+          nullable: true
+          description: Payee or counterparty name
+
+    PageMetadata:
+      type: object
+      title: Page Metadata
+      description: FDX pagination metadata
+      properties:
+        total:
+          type: integer
+          format: int64
+          nullable: true
+        nextOffset:
+          type: string
+          nullable: true
+
+    AccountsResponse:
+      type: object
+      title: Accounts Response
+      description: FDX-aligned paginated accounts list
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositAccount'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    TransactionsResponse:
+      type: object
+      title: Transactions Response
+      description: FDX-aligned paginated transactions list
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    Error:
+      type: object
+      title: Error
+      description: Standard error envelope
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

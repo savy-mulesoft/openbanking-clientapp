@@ -33,36 +33,7 @@ readUrl("classpath://web/bmo-ui.js", "text/plain")
 		<set-payload doc:name="JS content type" value="#[payload]" mimeType="application/javascript"/>
 	</flow>
 
-	<!-- FDX Core API — /fdx/v6/* (BMO as Data Holder) -->
-	<flow name="bmo-fdx-core-flow" doc:name="bmo-fdx-core-flow">
-		<http:listener doc:name="FDX Core Listener" config-ref="HTTP_Listener_config" path="/fdx/v6/*" allowedMethods="GET"/>
-		<logger level="INFO" doc:name="Log FDX Request" message="FDX Core API: #[attributes.method] #[attributes.requestPath]"/>
-		<choice doc:name="Route FDX Core">
-			<when expression="#[attributes.requestPath == '/fdx/v6/accounts']">
-				<flow-ref doc:name="searchForAccounts" name="get-accounts-flow"/>
-			</when>
-			<when expression="#[attributes.requestPath != '/fdx/v6/accounts' and (attributes.requestPath endsWith '/transactions')]">
-				<flow-ref doc:name="searchForAccountTransactions" name="get-transactions-flow"/>
-			</when>
-			<otherwise>
-				<ee:transform doc:name="FDX Not Found">
-					<ee:message>
-						<ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  "code": "404",
-  "message": "FDX Core endpoint not found",
-  "path": attributes.requestPath
-}]]></ee:set-payload>
-					</ee:message>
-					<ee:variables>
-						<ee:set-variable variableName="httpStatus">404</ee:set-variable>
-					</ee:variables>
-				</ee:transform>
-			</otherwise>
-		</choice>
-	</flow>
+	<!-- FDX Core API routing moved to fdx-core-router.xml (APIKit Router) -->
 
 	<!-- BMO Client API Flow - Handles API requests from the UI -->
 	<flow name="bmo-client-api-flow" doc:name="bmo-client-api-flow">

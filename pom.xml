@@ -31,12 +31,18 @@
         </plugins>
     </build>
     <dependencies>
-        <!-- APIKit removed due to Java 17 incompatibility -->
         <dependency>
             <groupId>org.mule.modules</groupId>
             <artifactId>mule-apikit-module</artifactId>
             <version>1.10.4</version>
             <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>e5c02810-ef86-427e-8e6b-f3d3abe55974</groupId>
+            <artifactId>ob-fdx-core-api</artifactId>
+            <version>1.0.0</version>
+            <classifier>oas</classifier>
+            <type>zip</type>
         </dependency>
 		<dependency>
 			<groupId>org.mule.connectors</groupId>
