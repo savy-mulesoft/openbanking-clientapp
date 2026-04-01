@@ -735,14 +735,7 @@
         if (tb) {
             tb.textContent = formatMoneyCAD(total);
         }
-        var cashDesc = document.getElementById('cashCardDesc');
-        if (cashDesc) {
-            if (_tdAccountsData.length) {
-                cashDesc.textContent = 'BMO + linked cash (refresh to sync)';
-            } else {
-                cashDesc.textContent = 'BMO accounts; link TD with account access to add balances here';
-            }
-        }
+        /* Cash card description removed — info tooltip handles context */
     }
 
     function renderCashDrillRow(name, amountText) {
@@ -1679,6 +1672,7 @@
             });
         }
         wireInfoBtn('overviewInfoBtn', 'overviewInfoTip');
+        wireInfoBtn('cashInfoBtn', 'cashInfoTip');
         wireInfoBtn('txnInfoBtn', 'txnInfoTip');
 
     }

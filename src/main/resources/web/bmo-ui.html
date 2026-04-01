@@ -360,12 +360,13 @@
             animation: dropdownIn 0.28s var(--ease-spring) both;
         }
 
-        @media (max-width: 420px) {
+        @media (max-width: 430px) {
             .header-dropdown {
-                right: auto;
-                left: 0;
-                min-width: 200px;
-                max-width: calc(100vw - 40px);
+                position: fixed;
+                left: 16px;
+                right: 16px;
+                min-width: 0;
+                width: auto;
             }
         }
 
@@ -1435,10 +1436,7 @@
                 <div class="header-row">
                     <div class="logo">
                         <div class="logo-icon" role="img" aria-label="BMO">
-                            <svg viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg" width="42" height="42" aria-hidden="true">
-                                <rect width="42" height="42" rx="8" fill="#0075BE"/>
-                                <text x="50%" y="54%" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="14" font-weight="800" letter-spacing="0.5">BMO</text>
-                            </svg>
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=&quot;font-size:14px;font-weight:800;color:#fff&quot;>BMO</span>'" />
                         </div>
                         <div class="logo-text">
                             <h1>Open Banking</h1>
@@ -1517,7 +1515,7 @@
                     <div class="cards">
                         <div class="card card--cash-tappable" id="cashCard">
                             <div class="card-cash-head">
-                                <div class="card-label">Cash</div>
+                                <div class="card-label" style="display:flex;align-items:center;gap:6px;">Cash <button type="button" class="info-btn" id="cashInfoBtn" aria-label="About cash" style="width:22px;height:22px;font-size:12px;">i</button></div>
                                 <button type="button" class="card-refresh-btn" id="cashRefreshBtn" aria-label="Refresh balances">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -1527,8 +1525,8 @@
                                     </svg>
                                 </button>
                             </div>
+                            <div class="info-tooltip" id="cashInfoTip">360 Account information. Total amount across BMO and other connected bank accounts.</div>
                             <div class="card-value" id="totalBalance">—</div>
-                            <div class="card-description" id="cashCardDesc">BMO + linked balances</div>
                         </div>
                         <div class="card" id="externalConnectionsCard">
                             <div class="card-external-head">
@@ -1700,6 +1698,6 @@
 
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js?v=20260401e"></script>
+    <script defer="defer" src="/web/bmo-ui.js?v=20260401f"></script>
 </body>
 </html>
