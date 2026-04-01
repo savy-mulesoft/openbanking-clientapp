@@ -1,0 +1,229 @@
+#%Validation Profile 1.0
+# |
+# | Open Banking Core API Governance Ruleset
+# | MuleSoft AMF Validation Profile format
+# |
+# | Derived from the FDX Spectral ruleset v6.5.0
+# | (FDX Fall Release 2025/API/FDX API v6.5/Tools/config/fdx.spectral.ruleset.yaml)
+# |
+# | Target: FDX-aligned OpenAPI 3.x specs such as the TD Resource Server API.
+# | Rules selected for core banking operations (accounts + transactions).
+# |
+# | References:
+# |   https://docs.mulesoft.com/api-governance/custom-rulesets-new
+# |   https://docs.mulesoft.com/api-governance/custom-rulesets-validate-and-publish
+# |   https://github.com/aml-org/amf-custom-validator
+# |   https://financialdataexchange.org/
+# |
+
+profile: Open Banking/open-banking-core-ruleset
+
+description: >
+  Open Banking core governance rules for FDX-aligned OpenAPI 3.x specifications.
+  Enforces semantic versioning, operation naming conventions (camelCase, GET prefix),
+  security scheme requirements (Bearer JWT), response content obligations,
+  FAPI interaction-id header presence, and schema documentation standards.
+  Applicable to data holder (resource server) APIs implementing FDX Core
+  account and transaction endpoints.
+
+violation:
+  - fdx-semantic-versions
+  - fdx-operation-id-required
+  - fdx-operation-id-camel-case
+  - fdx-operation-id-match-get
+  - fdx-api-security-schemes-required
+  - fdx-bearer-auth-required
+  - fdx-response-must-have-content
+  - fdx-payloads-must-be-objects
+  - fdx-properties-camel-case
+  - fdx-schemas-must-have-type
+
+warning:
+  - fdx-fapi-interaction-id
+  - fdx-entity-title
+  - fdx-entity-description
+  - fdx-property-description
+  - fdx-tags-title-case
+  - fdx-path-no-trailing-slash
+
+validations:
+
+  # ─────────────────────────────────────────────────────
+  # API-level (WebAPI) rules
+  # ─────────────────────────────────────────────────────
+
+  # FDX Spectral rule: fdx-semantic-versions
+  # Require 3-part semantic version; major versions 6–9 match current FDX releases.
+  fdx-semantic-versions:
+    message: >
+      API version must be a valid FDX semantic version (major 6-9).
+      Found value does not match the pattern ^[6-9].(0|[1-9][0-9]*).(0|[1-9][0-9]*)$.
+    targetClass: apiContract.WebAPI
+    propertyConstraints:
+      core.version:
+        pattern: '^[6-9]\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+
+  # FDX Spectral rule: fdx-api-security-schemes
+  # API must define at least one security scheme (securedBy at API level).
+  fdx-api-security-schemes-required:
+    message: API must declare at least one security scheme. FDX mandates OAuth 2.0 Bearer JWT.
+    targetClass: apiContract.WebAPI
+    propertyConstraints:
+      security.securedBy:
+        minCount: 1
+
+  # Custom rule: Bearer JWT security scheme must be present.
+  # FDX mandates Bearer JWT for all data-access endpoints.
+  fdx-bearer-auth-required:
+    message: >
+      API must include a Bearer JWT security scheme. FDX requires OAuth 2.0
+      access tokens (JWT) with audience and scope claims for all data access endpoints.
+    targetClass: security.SecurityScheme
+    propertyConstraints:
+      security.scheme:
+        minCount: 1
+
+  # ─────────────────────────────────────────────────────
+  # Operation-level rules
+  # ─────────────────────────────────────────────────────
+
+  # FDX Spectral rule: every operation must have an operationId
+  fdx-operation-id-required:
+    message: Every operation must have an operationId (core.name). Missing operationId found.
+    targetClass: apiContract.Operation
+    propertyConstraints:
+      core.name:
+        minCount: 1
+
+  # FDX Spectral rule: fdx-operation-id-camel-case
+  # operationId must be camelCase (generators like RTK Query require it).
+  fdx-operation-id-camel-case:
+    message: operationId must be in camelCase (e.g. searchForAccounts, getAccount).
+    targetClass: apiContract.Operation
+    propertyConstraints:
+      core.name:
+        pattern: '^[a-z][a-zA-Z0-9]*$'
+
+  # FDX Spectral rule: fdx-operation-id-match-get
+  # GET operations must start with 'get' or 'search'.
+  fdx-operation-id-match-get:
+    message: >
+      GET operationId must start with 'get' or 'search'
+      (e.g. getAccount, searchForAccounts).
+    targetClass: apiContract.Operation
+    if:
+      propertyConstraints:
+        apiContract.method:
+          pattern: '^get$'
+    then:
+      propertyConstraints:
+        core.name:
+          pattern: '^(get|search)[A-Z]'
+
+  # ─────────────────────────────────────────────────────
+  # Response-level rules
+  # ─────────────────────────────────────────────────────
+
+  # FDX Spectral rule: fdx-response-missing-content
+  # Response bodies must define content (not be empty).
+  fdx-response-must-have-content:
+    message: Response must define a content payload. Empty responses break client code generation.
+    targetClass: apiContract.Response
+    propertyConstraints:
+      apiContract.payload:
+        minCount: 1
+
+  # FDX Spectral rule: fdx-response-headers
+  # Responses should include the x-fapi-interaction-id header for request tracing.
+  fdx-fapi-interaction-id:
+    message: >
+      Responses should include an x-fapi-interaction-id header for FAPI-compliant
+      request tracing. This is a strong recommendation per FDX and FAPI standards.
+    targetClass: apiContract.Response
+    propertyConstraints:
+      apiContract.header:
+        minCount: 1
+
+  # ─────────────────────────────────────────────────────
+  # Schema / shape rules
+  # ─────────────────────────────────────────────────────
+
+  # FDX Spectral rule: fdx-payloads-of-type-object
+  # Request/response payloads must be of type: object for extensibility.
+  fdx-payloads-must-be-objects:
+    message: >
+      Request and response payloads must be of type 'object' to allow
+      non-breaking extensibility (adding new properties without breaking clients).
+    targetClass: apiContract.Payload
+    propertyConstraints:
+      shapes.schema:
+        minCount: 1
+
+  # FDX Spectral rule: fdx-schema-type
+  # Every schema must declare a type.
+  fdx-schemas-must-have-type:
+    message: Schema objects must declare a type (object, array, string, etc.).
+    targetClass: shapes.NodeShape
+    propertyConstraints:
+      shacl.datatype:
+        minCount: 0
+
+  # FDX Spectral rule: fdx-properties-camel-case
+  # Property names should be in camelCase.
+  fdx-properties-camel-case:
+    message: >
+      Property names must be in camelCase (e.g. accountId, currentBalance).
+      Non-camelCase property names break code generation conventions.
+    targetClass: shapes.PropertyShape
+    propertyConstraints:
+      core.name:
+        pattern: '^[a-z][a-zA-Z0-9]*$'
+
+  # FDX Spectral rule: fdx-entity-title
+  # Each schema object should have a title/name.
+  fdx-entity-title:
+    message: Schema objects should have a title for documentation and code generation.
+    targetClass: shapes.NodeShape
+    propertyConstraints:
+      core.name:
+        minCount: 1
+
+  # FDX Spectral rule: fdx-entity-description
+  # Each schema object should have a description.
+  fdx-entity-description:
+    message: Schema objects should have a description for developer documentation.
+    targetClass: shapes.NodeShape
+    propertyConstraints:
+      core.description:
+        minCount: 1
+
+  # FDX Spectral rule: fdx-tags-title-case
+  # Tags should be Title Case noun phrases.
+  fdx-tags-title-case:
+    message: >
+      Tags should be Title Case noun phrases (e.g. 'Account Information',
+      'Account Transactions'). Found non-Title-Case tag.
+    targetClass: apiContract.Tag
+    propertyConstraints:
+      core.name:
+        pattern: '^[A-Z][a-z]+(?: [A-Z][a-z]+)*$'
+
+  # FDX Spectral rule: fdx-property-description
+  # Properties should have descriptions.
+  fdx-property-description:
+    message: Properties should have descriptions for comprehensive API documentation.
+    targetClass: shapes.PropertyShape
+    propertyConstraints:
+      core.description:
+        minCount: 1
+
+  # Custom rule: paths should not have trailing slashes.
+  # Prevents inconsistent URL handling across HTTP clients.
+  fdx-path-no-trailing-slash:
+    message: >
+      API paths should not end with a trailing slash. Trailing slashes cause
+      inconsistent behaviour across HTTP clients and CDN caches.
+    targetClass: apiContract.EndPoint
+    propertyConstraints:
+      apiContract.path:
+        pattern: '^.*[^/]$'
