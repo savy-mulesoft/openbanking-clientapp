@@ -34,7 +34,7 @@
         </mxCell>
 
         <!-- BMO API Flow -->
-        <mxCell id="bmo-api-flow" value="&lt;b&gt;bmo-client-api-flow&lt;/b&gt;&lt;br&gt;GET /api/accounts&lt;br&gt;GET /api/transactions&lt;br&gt;GET /api/balance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="bmo-api-flow" value="&lt;b&gt;bmo-client-api-flow (FDX)&lt;/b&gt;&lt;br&gt;GET /api/accounts → FDX schema&lt;br&gt;GET /api/transactions → FDX schema&lt;br&gt;GET /api/balance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="480" y="215" width="145" height="70" as="geometry"/>
         </mxCell>
 
@@ -242,8 +242,8 @@
         </mxCell>
 
         <!-- Sequence flow note -->
-        <mxCell id="seq-note" value="&lt;b&gt;OAuth Consent Flow Sequence&lt;/b&gt;&lt;br&gt;1. Browser → BMO /api/auth/connect?bank=TD&amp;access_types=ACCOUNT_BASIC,TRANSACTIONS&lt;br&gt;2. BMO stores pending consent in OS → 302 redirect to Auth0 /authorize&lt;br&gt;3. User consents on Auth0 → 302 redirect to BMO /callback?code=...&amp;state=...&lt;br&gt;4. BMO exchanges code for JWT at Auth0 /oauth/token&lt;br&gt;5. BMO merges pending consent + JWT → stores session in OS → 302 to UI&lt;br&gt;6. UI calls /api/oauth/session → saves to localStorage&lt;br&gt;7. UI calls /api/td/accounts → BMO loads JWT from OS → forwards to TD with Bearer" style="shape=mxgraph.basic.rect;fillColor=#f5f5f5;strokeColor=#999999;rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
-          <mxGeometry x="80" y="560" width="580" height="140" as="geometry"/>
+        <mxCell id="seq-note" value="&lt;b&gt;FDX-Aligned Architecture&lt;/b&gt;&lt;br&gt;Both BMO and TD expose FDX Core API v6 schema: accountCategory, accountId,&lt;br&gt;nickname, currentBalance, transactionId, postedTimestamp, debitCreditMemo, payee.&lt;br&gt;&lt;br&gt;&lt;b&gt;OAuth Consent Flow Sequence&lt;/b&gt;&lt;br&gt;1. Browser → BMO /api/auth/connect?bank=TD&amp;access_types=ACCOUNT_BASIC,TRANSACTIONS&lt;br&gt;2. BMO stores pending consent in OS → 302 redirect to Auth0 /authorize&lt;br&gt;3. User consents on Auth0 → 302 redirect to BMO /callback?code=...&amp;state=...&lt;br&gt;4. BMO exchanges code for JWT at Auth0 /oauth/token&lt;br&gt;5. BMO merges pending consent + JWT → stores session in OS → 302 to UI&lt;br&gt;6. UI calls /api/oauth/session → saves to localStorage&lt;br&gt;7. UI calls /api/td/accounts → BMO loads JWT from OS → forwards to TD with Bearer" style="shape=mxgraph.basic.rect;fillColor=#f5f5f5;strokeColor=#999999;rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="560" width="580" height="160" as="geometry"/>
         </mxCell>
 
       </root>

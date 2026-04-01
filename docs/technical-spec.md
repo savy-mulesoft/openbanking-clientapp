@@ -83,6 +83,7 @@ graph TB
 | Runtime | Mule 4 Enterprise 4.10.5 | Anypoint ecosystem, CloudHub deployment, API Manager integration |
 | IdP | Auth0 (SaaS) | Fast PoC setup, OIDC + custom scopes, JWKS endpoint for gateway validation |
 | API Standard | FDX Core API v6 | Canadian Open Banking alignment, standardised account/transaction semantics |
+| Data Schema | FDX-aligned for both BMO and TD | Both data holders return identical FDX fields (`accountId`, `currentBalance`, `debitCreditMemo`, etc.) — a single client parser works for any bank |
 | Token Storage | Mule Object Store | Server-side JWT persistence, no tokens exposed to browser |
 | Client UI | Vanilla HTML/CSS/JS (ES5) | Zero build tooling, embedded in Mule classpath, no framework dependencies |
 
@@ -226,7 +227,7 @@ The user can remove an external connection. The client immediately clears local 
 |-----------------|-------|----------------|
 | `global.xml` | HTTP Listener (8081), HTTP Requester, Object Store definition | Shared infrastructure |
 | `ui-flow.xml` | `ui-main-flow`, `serve-bmo-ui-js-flow` | Serve SPA (HTML + JS) |
-| `ui-flow.xml` | `bmo-client-api-flow`, `get-accounts-flow`, `get-transactions-flow`, `get-balance-flow` | BMO mock data APIs |
+| `ui-flow.xml` | `bmo-client-api-flow`, `get-accounts-flow`, `get-transactions-flow`, `get-balance-flow` | BMO data APIs (FDX-aligned schemas) |
 | `oauth-flow.xml` | `oauth-connect-flow` | Initiate consent: validate params, store pending consent, redirect to Auth0 |
 | `oauth-flow.xml` | `oauth-callback-flow` | Handle Auth0 callback: exchange code, merge consent metadata, persist session |
 | `oauth-flow.xml` | `oauth-session-http-flow`, `oauth-disconnect-http-flow` | Session retrieval and teardown |
@@ -365,8 +366,8 @@ The TD resource server has a **JWT Validation** policy applied via **Autodiscove
 |--------|------|------|-------------|
 | `GET` | `/` | None | Serve SPA HTML |
 | `GET` | `/web/bmo-ui.js` | None | Serve UI JavaScript |
-| `GET` | `/api/accounts` | None | BMO mock accounts |
-| `GET` | `/api/transactions` | None | BMO mock transactions |
+| `GET` | `/api/accounts` | None | BMO accounts (FDX schema) |
+| `GET` | `/api/transactions` | None | BMO transactions (FDX schema) |
 | `GET` | `/api/balance` | None | Aggregated balance with OAuth context |
 | `GET` | `/api/td/accounts` | OAuth Session | Proxy to TD `/fdx/v6/accounts` |
 | `GET` | `/api/td/accounts/{id}/transactions` | OAuth Session | Proxy to TD `/fdx/v6/accounts/{id}/transactions` |
@@ -389,6 +390,33 @@ The TD resource server has a **JWT Validation** policy applied via **Autodiscove
 
 All TD endpoints require a valid Bearer JWT with `aud: urn:fdx:tdbank`. The JWT
 Validation policy on API Manager validates the token before it reaches the Mule app.
+
+### 7.3 FDX Schema Alignment
+
+A core Open Banking principle is that **every data holder exposes the same API contract**.
+Both BMO and TD return data using the FDX Core API v6 schema — the UI can parse any
+bank's response with a single code path.
+
+| FDX Field | Type | Used In |
+|-----------|------|---------|
+| `accountCategory` | string (DEPOSIT_ACCOUNT, LOC_ACCOUNT) | Accounts |
+| `accountId` | string | Accounts, Transactions |
+| `nickname` | string | Accounts |
+| `status` | string (OPEN, CLOSED) | Accounts |
+| `currency` | string (ISO 4217) | Accounts |
+| `currentBalance` | number | Accounts |
+| `availableBalance` | number | Accounts |
+| `balanceAsOf` | date-time | Accounts |
+| `transactionId` | string | Transactions |
+| `postedTimestamp` | date-time | Transactions |
+| `description` | string | Transactions |
+| `debitCreditMemo` | string (DEBIT, CREDIT) | Transactions |
+| `amount` | number (always positive) | Transactions |
+| `payee` | string | Transactions |
+
+The UI's `sumBmoBalances()` and `sumTdCashBalances()` functions both read `currentBalance`
+/ `availableBalance`. The transaction renderer uses `fdxSignedAmount()` which derives the
+sign from `debitCreditMemo` — the same logic for BMO and TD rows.
 
 ---
 

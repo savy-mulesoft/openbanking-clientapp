@@ -67,10 +67,10 @@ output application/json
 		</choice>
 	</flow>
 
-	<!-- Mock API Flows for BMO Client functionality -->
+	<!-- Mock API Flows for BMO Client — FDX-aligned response schemas -->
 	<flow name="get-accounts-flow" doc:name="get-accounts-flow">
-		<logger level="INFO" doc:name="Log Accounts Request" message="Getting accounts data"/>
-		<ee:transform doc:name="Mock Accounts Response">
+		<logger level="INFO" doc:name="Log Accounts Request" message="Getting accounts data (FDX format)"/>
+		<ee:transform doc:name="Mock Accounts Response (FDX)">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -78,30 +78,39 @@ output application/json
 {
   "accounts": [
     {
-      "id": "acc-001",
-      "accountNumber": "****1234",
-      "accountType": "Checking",
-      "balance": 2500.75,
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-1234",
+      "nickname": "Everyday Chequing (****1234)",
+      "status": "OPEN",
       "currency": "CAD",
-      "status": "Active"
+      "balanceAsOf": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"},
+      "currentBalance": 2500.75,
+      "availableBalance": 2450.00
     },
     {
-      "id": "acc-002", 
-      "accountNumber": "****5678",
-      "accountType": "Savings",
-      "balance": 15750.20,
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-5678",
+      "nickname": "High Interest Savings (****5678)",
+      "status": "OPEN",
       "currency": "CAD",
-      "status": "Active"
+      "balanceAsOf": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"},
+      "currentBalance": 15750.20,
+      "availableBalance": 15750.20
     },
     {
-      "id": "acc-003",
-      "accountNumber": "****9012",
-      "accountType": "Credit Card",
-      "balance": -850.45,
+      "accountCategory": "LOC_ACCOUNT",
+      "accountId": "BMO-9012",
+      "nickname": "BMO Mastercard (****9012)",
+      "status": "OPEN",
       "currency": "CAD",
-      "status": "Active"
+      "balanceAsOf": now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"},
+      "currentBalance": -850.45,
+      "availableBalance": 4149.55
     }
-  ]
+  ],
+  "page": {
+    "total": 3
+  }
 }]]></ee:set-payload>
 			</ee:message>
 			<ee:variables>
@@ -111,8 +120,8 @@ output application/json
 	</flow>
 
 	<flow name="get-transactions-flow" doc:name="get-transactions-flow">
-		<logger level="INFO" doc:name="Log Transactions Request" message="Getting transactions data"/>
-		<ee:transform doc:name="Mock Transactions Response">
+		<logger level="INFO" doc:name="Log Transactions Request" message="Getting transactions data (FDX format)"/>
+		<ee:transform doc:name="Mock Transactions Response (FDX)">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -120,36 +129,39 @@ output application/json
 {
   "transactions": [
     {
-      "id": "txn-001",
-      "accountId": "acc-001",
-      "date": "2024-03-24T10:30:00Z",
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-1234",
+      "transactionId": "BMO-TXN-001",
+      "postedTimestamp": "2024-03-24T10:30:00.000Z",
       "description": "Grocery Store Purchase",
-      "amount": -125.67,
-      "currency": "CAD",
-      "type": "Purchase",
-      "category": "Groceries"
+      "debitCreditMemo": "DEBIT",
+      "amount": 125.67,
+      "payee": "Loblaws"
     },
     {
-      "id": "txn-002",
-      "accountId": "acc-001", 
-      "date": "2024-03-23T14:15:00Z",
-      "description": "Salary Deposit",
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-1234",
+      "transactionId": "BMO-TXN-002",
+      "postedTimestamp": "2024-03-23T14:15:00.000Z",
+      "description": "Salary Deposit — Employer Corp",
+      "debitCreditMemo": "CREDIT",
       "amount": 3200.00,
-      "currency": "CAD",
-      "type": "Deposit",
-      "category": "Income"
+      "payee": "Employer Corp"
     },
     {
-      "id": "txn-003",
-      "accountId": "acc-002",
-      "date": "2024-03-22T09:45:00Z",
-      "description": "Online Transfer",
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-5678",
+      "transactionId": "BMO-TXN-003",
+      "postedTimestamp": "2024-03-22T09:45:00.000Z",
+      "description": "Interac e-Transfer to A. Lee",
+      "debitCreditMemo": "DEBIT",
       "amount": 500.00,
-      "currency": "CAD",
-      "type": "Transfer",
-      "category": "Transfer"
+      "payee": "A. Lee"
     }
-  ]
+  ],
+  "page": {
+    "total": 3
+  }
 }]]></ee:set-payload>
 			</ee:message>
 			<ee:variables>
@@ -207,19 +219,22 @@ output application/json
   },
   "accountBreakdown": [
     {
-      "accountId": "acc-001",
-      "accountType": "Checking", 
-      "balance": 2500.75
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-1234",
+      "nickname": "Everyday Chequing (****1234)",
+      "currentBalance": 2500.75
     },
     {
-      "accountId": "acc-002",
-      "accountType": "Savings",
-      "balance": 15750.20  
+      "accountCategory": "DEPOSIT_ACCOUNT",
+      "accountId": "BMO-5678",
+      "nickname": "High Interest Savings (****5678)",
+      "currentBalance": 15750.20
     },
     {
-      "accountId": "acc-003",
-      "accountType": "Credit Card",
-      "balance": -850.45
+      "accountCategory": "LOC_ACCOUNT",
+      "accountId": "BMO-9012",
+      "nickname": "BMO Mastercard (****9012)",
+      "currentBalance": -850.45
     }
   ],
   "oauthStatus": {

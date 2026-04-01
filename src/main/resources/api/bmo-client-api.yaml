@@ -4,12 +4,20 @@ info:
   description: |
     BMO Open Banking Proof of Concept — client application API surface.
 
-    This Mule 4 application serves as an **aggregator client** that:
-    1. Exposes **BMO mock** account and transaction data.
+    This Mule 4 application serves as both a **data holder** and an **aggregator client**:
+    1. Exposes **BMO account and transaction data in FDX-standard format** — the same
+       schema contract used by external data holders (TD, RBC, etc.).
     2. **Proxies** consented FDX requests to external resource servers (e.g. TD Canada Trust)
        using OAuth 2.0 access tokens stored server-side.
     3. Manages the **OAuth 2.0 Authorization Code** flow with Auth0 as the identity provider.
     4. Provides cache and session management for multi-user demo scenarios.
+
+    **FDX alignment:** Both BMO's own endpoints (`/api/accounts`, `/api/transactions`) and
+    the TD proxy endpoints (`/api/td/accounts`, `/api/td/accounts/{id}/transactions`) return
+    data conforming to the **FDX Core API v6** schema — `accountCategory`, `accountId`,
+    `nickname`, `currentBalance`, `availableBalance`, `transactionId`, `postedTimestamp`,
+    `debitCreditMemo`, `amount`, `payee`, etc. This ensures a uniform data contract
+    regardless of the data holder.
 
     **Security model:**
     - `/api/td/*` endpoints relay a Bearer JWT (obtained via Auth0) to the external
@@ -17,9 +25,6 @@ info:
       FDX DataCluster conventions (`ACCOUNT_BASIC`, `TRANSACTIONS`).
     - BMO-internal endpoints (`/api/accounts`, `/api/transactions`) return mock data
       and do not require authentication in this PoC.
-
-    **FDX alignment:** External-facing proxy paths mirror FDX Core API v6.5 semantics
-    (`/accounts`, `/accounts/{accountId}/transactions`).
   version: 1.0.0
   contact:
     name: Open Banking PoC Team
@@ -49,33 +54,40 @@ tags:
 paths:
   /api/accounts:
     get:
-      operationId: getBmoAccounts
+      operationId: searchForBmoAccounts
       tags:
         - BMO Accounts
-      summary: List BMO mock accounts
-      description: Returns mock BMO chequing, savings, and credit card accounts.
+      summary: Search for BMO accounts (FDX-aligned)
+      description: |
+        Returns BMO chequing, savings, and credit card accounts using
+        FDX-standard schema fields (accountCategory, accountId, nickname,
+        currentBalance, availableBalance, etc.). The response structure
+        mirrors the FDX Core `searchForAccounts` operation.
       responses:
         '200':
-          description: Account list
+          description: FDX accounts response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BmoAccountsResponse'
+                $ref: '#/components/schemas/FdxAccountsResponse'
 
   /api/transactions:
     get:
-      operationId: getBmoTransactions
+      operationId: searchForBmoTransactions
       tags:
         - BMO Transactions
-      summary: List BMO mock transactions
-      description: Returns mock BMO transactions across accounts.
+      summary: Search for BMO transactions (FDX-aligned)
+      description: |
+        Returns BMO transactions using FDX-standard schema fields
+        (transactionId, postedTimestamp, debitCreditMemo, amount, payee, etc.).
+        The response structure mirrors the FDX Core `searchForAccountTransactions` operation.
       responses:
         '200':
-          description: Transaction list
+          description: FDX transactions response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BmoTransactionsResponse'
+                $ref: '#/components/schemas/FdxTransactionsResponse'
 
   /api/balance:
     get:
@@ -377,66 +389,87 @@ components:
         Obtained via Auth0 authorization code flow. Audience: urn:fdx:tdbank.
 
   schemas:
-    BmoAccountsResponse:
+    DepositAccount:
       type: object
-      title: BMO Accounts Response
-      description: List of BMO mock accounts
+      title: Deposit Account
+      description: FDX-aligned account representation (shared by BMO and external data holders)
       properties:
-        accounts:
-          type: array
-          items:
-            $ref: '#/components/schemas/BmoAccount'
-
-    BmoAccount:
-      type: object
-      title: BMO Account
-      description: A single BMO account
-      properties:
-        id:
+        accountCategory:
           type: string
-        accountNumber:
-          type: string
-        accountType:
-          type: string
-        balance:
-          type: number
-        currency:
-          type: string
-        status:
-          type: string
-
-    BmoTransactionsResponse:
-      type: object
-      title: BMO Transactions Response
-      description: List of BMO mock transactions
-      properties:
-        transactions:
-          type: array
-          items:
-            $ref: '#/components/schemas/BmoTransaction'
-
-    BmoTransaction:
-      type: object
-      title: BMO Transaction
-      description: A single BMO transaction
-      properties:
-        id:
-          type: string
+          enum: [DEPOSIT_ACCOUNT, LOC_ACCOUNT]
+          description: FDX account category
         accountId:
           type: string
-        date:
+          description: Unique account identifier
+        nickname:
           type: string
-          format: date-time
-        description:
+          description: Human-readable account label
+        status:
           type: string
-        amount:
-          type: number
+          enum: [OPEN, CLOSED, NEGATIVE_CURRENT_BALANCE]
+          description: Account status
         currency:
           type: string
-        type:
+          description: ISO 4217 currency code
+        balanceAsOf:
           type: string
-        category:
+          format: date-time
+          description: Timestamp of last balance update
+        currentBalance:
+          type: number
+          format: double
+          description: Current ledger balance
+        availableBalance:
+          type: number
+          format: double
+          description: Available funds
+
+    Transaction:
+      type: object
+      title: Transaction
+      description: FDX-aligned transaction representation (shared by BMO and external data holders)
+      properties:
+        accountCategory:
           type: string
+          description: FDX account category
+        accountId:
+          type: string
+          description: Account the transaction belongs to
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+        postedTimestamp:
+          type: string
+          format: date-time
+          description: Date/time the transaction was posted
+        description:
+          type: string
+          description: Human-readable transaction description
+        debitCreditMemo:
+          type: string
+          enum: [DEBIT, CREDIT]
+          description: Indicates whether the transaction is a debit or credit
+        amount:
+          type: number
+          format: double
+          description: Transaction amount (always positive; sign indicated by debitCreditMemo)
+        payee:
+          type: string
+          nullable: true
+          description: Payee or counterparty name
+
+    PageMetadata:
+      type: object
+      title: Page Metadata
+      description: FDX pagination metadata
+      properties:
+        total:
+          type: integer
+          format: int64
+          nullable: true
+        nextOffset:
+          type: string
+          nullable: true
 
     BalanceResponse:
       type: object
@@ -491,54 +524,30 @@ components:
     FdxAccountsResponse:
       type: object
       title: FDX Accounts Response
-      description: Proxied FDX accounts from TD resource server
+      description: |
+        FDX-aligned accounts response. Used by both BMO's own /api/accounts and
+        the TD proxy /api/td/accounts — same schema contract regardless of data holder.
       properties:
         accounts:
           type: array
           items:
-            type: object
-            properties:
-              accountId:
-                type: string
-              nickname:
-                type: string
-              currentBalance:
-                type: number
-              availableBalance:
-                type: number
-              currency:
-                type: object
-                properties:
-                  currencyCode:
-                    type: string
+            $ref: '#/components/schemas/DepositAccount'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
 
     FdxTransactionsResponse:
       type: object
       title: FDX Transactions Response
-      description: Proxied FDX transactions from TD resource server
+      description: |
+        FDX-aligned transactions response. Used by both BMO's own /api/transactions
+        and the TD proxy /api/td/accounts/{id}/transactions — same schema contract.
       properties:
         transactions:
           type: array
           items:
-            type: object
-            properties:
-              transactionId:
-                type: string
-              accountId:
-                type: string
-              transactionTimestamp:
-                type: string
-                format: date-time
-              description:
-                type: string
-              amount:
-                type: number
-              debitCreditMemo:
-                type: string
-              category:
-                type: string
-              status:
-                type: string
+            $ref: '#/components/schemas/Transaction'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
 
     OAuthSessionResponse:
       type: object

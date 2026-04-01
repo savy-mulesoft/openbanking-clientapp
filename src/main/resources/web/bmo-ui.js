@@ -260,7 +260,10 @@
 
     function sumBmoBalances(accounts) {
         return (accounts || []).reduce(function (sum, a) {
-            return sum + (Number(a.balance) || 0);
+            if (a.currentBalance != null && !isNaN(Number(a.currentBalance))) {
+                return sum + Number(a.currentBalance);
+            }
+            return sum + (Number(a.availableBalance) || 0);
         }, 0);
     }
 
@@ -762,8 +765,8 @@
                 bmoBox.appendChild(renderCashDrillRow('No BMO accounts loaded', '—'));
             } else {
                 _bmoAccountsData.forEach(function (acc) {
-                    var label = (acc.accountType || 'Account') + ' (' + (acc.accountNumber || acc.id || '—') + ')';
-                    bmoBox.appendChild(renderCashDrillRow(label, formatMoneyCAD(acc.balance)));
+                    var label = acc.nickname || ((acc.accountCategory || 'Account') + ' (' + (acc.accountId || '—') + ')');
+                    bmoBox.appendChild(renderCashDrillRow(label, formatMoneyCAD(acc.currentBalance != null ? acc.currentBalance : acc.availableBalance)));
                 });
             }
         }
@@ -859,6 +862,15 @@
         }
     }
 
+    function fdxSignedAmount(t) {
+        var a = Number(t.amount);
+        if (isNaN(a)) return 0;
+        var memo = String(t.debitCreditMemo || '').toUpperCase();
+        if (memo === 'DEBIT') return -Math.abs(a);
+        if (memo === 'CREDIT') return Math.abs(a);
+        return a;
+    }
+
     function appendBmoTxnRows(container, list) {
         if (!container) return;
         container.innerHTML = '';
@@ -879,7 +891,7 @@
             desc.textContent = t.description || 'Transaction';
             var amt = document.createElement('span');
             amt.className = 'txn-row__amt';
-            var num = Number(t.amount);
+            var num = fdxSignedAmount(t);
             if (num < 0) amt.classList.add('txn-row__amt--neg');
             if (num > 0) amt.classList.add('txn-row__amt--pos');
             amt.textContent = formatMoneyCAD(num);
@@ -887,7 +899,8 @@
             top.appendChild(amt);
             var meta = document.createElement('div');
             meta.className = 'txn-row__meta';
-            meta.textContent = [formatBmoTxnDate(t.date), t.category, t.type].filter(Boolean).join(' · ');
+            var ts = t.postedTimestamp || t.date || '';
+            meta.textContent = [formatBmoTxnDate(ts), t.debitCreditMemo, t.payee].filter(Boolean).join(' · ');
             row.appendChild(top);
             row.appendChild(meta);
             container.appendChild(row);
