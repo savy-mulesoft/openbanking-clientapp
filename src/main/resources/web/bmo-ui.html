@@ -425,11 +425,16 @@
             color: var(--text);
         }
 
-        .overview p.lead {
+        .overview > p.lead,
+        .card--transactions p.lead {
             color: var(--text-muted);
             font-size: 15px;
+            line-height: 1.45;
+            max-width: none;
+        }
+
+        .overview > p.lead {
             margin-bottom: 24px;
-            max-width: 36em;
         }
 
         .grid {
@@ -606,82 +611,135 @@
             .btn-primary:hover { filter: brightness(1.05); }
         }
 
-        .api-section {
-            margin-top: 32px;
+        .card--transactions {
+            margin-top: 24px;
         }
 
-        .api-section h3 {
-            font-size: 19px;
-            font-weight: 600;
-            margin-bottom: 6px;
+        .card--transactions:hover {
+            transform: none;
+            box-shadow: var(--shadow-sm);
         }
 
-        .api-section .api-lead {
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 16px;
+        .card--transactions .card-cash-head {
+            align-items: center;
         }
 
-        .api-grid {
-            display: grid;
-            gap: 12px;
+        .card--transactions .card-cash-head .card-label {
+            font-size: 12px;
         }
 
-        .api-card {
-            background: var(--bmo-white);
-            border-radius: var(--radius-md);
-            padding: 18px;
-            border: 1px solid var(--border);
-        }
-
-        .api-card h4 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-
-        .api-card p {
-            color: var(--text-muted);
-            font-size: 13px;
+        .card--transactions p.lead {
+            margin-top: 0;
             margin-bottom: 14px;
         }
 
-        .api-btn {
-            background: rgba(0, 112, 120, 0.08);
-            color: var(--bmo-teal-dark);
-            border: 1px solid rgba(0, 112, 120, 0.35);
-            padding: 12px 16px;
-            border-radius: var(--radius-sm);
+        .card--transactions .txn-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 2px;
+        }
+
+        .txn-tab {
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
             font-size: 14px;
             font-weight: 600;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
             cursor: pointer;
-            display: inline-block;
             min-height: var(--tap-size);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            transition: background 0.2s, color 0.2s;
+            transition: color 0.15s, background 0.15s;
         }
 
-        @media (hover: hover) {
-            .api-btn:hover {
-                background: var(--bmo-teal);
-                color: var(--bmo-white);
-            }
+        .txn-tab[aria-selected="true"] {
+            color: var(--bmo-teal-dark);
+            background: rgba(0, 112, 120, 0.08);
         }
 
-        .loading { display: none; color: var(--bmo-teal); font-size: 13px; margin-top: 8px; font-weight: 500; }
-        .results {
-            display: none;
+        .card--transactions .txn-panel-wrap {
             margin-top: 12px;
-            background: rgba(12, 35, 64, 0.04);
-            padding: 12px;
-            border-radius: var(--radius-sm);
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 11px;
-            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: rgba(12, 35, 64, 0.02);
+            overflow: hidden;
+        }
+
+        .txn-panel {
+            display: none;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        .txn-panel.is-active {
+            display: block;
+        }
+
+        .txn-panel__inner {
+            max-height: 320px;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+        }
+
+        .txn-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .txn-row:last-child {
+            border-bottom: none;
+        }
+
+        .txn-row__top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .txn-row__desc {
+            font-weight: 500;
+            color: var(--text);
+            min-width: 0;
+        }
+
+        .txn-row__amt {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+        }
+
+        .txn-row__amt--neg {
+            color: #b42318;
+        }
+
+        .txn-row__amt--pos {
+            color: #17803d;
+        }
+
+        .txn-row__meta {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .txn-empty,
+        .txn-error {
+            padding: 20px 16px;
+            font-size: 14px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .txn-error {
+            color: #b42318;
         }
 
         .bottom-bar {
@@ -873,6 +931,54 @@
             border: 1px solid var(--border);
         }
 
+        .scope-lead {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .scope-lead strong { color: var(--text-primary); }
+        .scope-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 20px;
+            max-height: 280px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .scope-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.12s;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .scope-item:hover { background: rgba(0,106,130,0.04); }
+        .scope-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--bmo-teal);
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .scope-item-text { flex: 1; min-width: 0; }
+        .scope-item-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .scope-item-code {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            margin-top: 1px;
+        }
+
         .connection-status { display: none; text-align: center; padding: 16px 8px 8px; }
 
         .status-icon {
@@ -943,6 +1049,106 @@
         }
 
         .modal--external-detail { position: relative; max-width: 440px; }
+
+        .modal--admin-hub {
+            position: relative;
+            max-width: 560px;
+            max-height: min(88dvh, 720px);
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 20px;
+        }
+        .modal--admin-hub h3 { padding-right: 40px; }
+        .admin-hub-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .admin-hub-status__dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .admin-hub-status__dot--active { background: #22c55e; }
+        .admin-hub-status__dot--inactive { background: #94a3b8; }
+        .admin-hub-token-box {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            word-break: break-all;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 11.5px;
+            line-height: 1.55;
+            color: #334155;
+            -webkit-overflow-scrolling: touch;
+        }
+        .admin-hub-token-box--empty {
+            text-align: center;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 14px;
+            padding: 32px 14px;
+        }
+        .admin-hub-claims {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+        .admin-hub-claims-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .admin-hub-claims-table th,
+        .admin-hub-claims-table td {
+            text-align: left;
+            padding: 6px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .admin-hub-claims-table th {
+            font-weight: 600;
+            color: var(--text-primary);
+            background: #f8fafc;
+            position: sticky;
+            top: 0;
+        }
+        .admin-hub-claims-table td:first-child {
+            font-weight: 500;
+            color: var(--bmo-teal);
+            white-space: nowrap;
+        }
+        .admin-hub-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .admin-hub-actions button {
+            flex: 1;
+            min-height: 38px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .admin-hub-copy-btn {
+            background: var(--bmo-teal);
+            color: var(--bmo-white);
+        }
+        .admin-hub-copy-btn:hover { background: #005a6e; }
+        .admin-hub-copy-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
 
         .modal--cash-drill {
             position: relative;
@@ -1205,6 +1411,7 @@
                             </button>
                             <div id="quickLinksDropdown" class="header-dropdown" role="menu" hidden>
                                 <button type="button" class="header-dropdown__item" role="menuitem" id="quickLinksConnectBtn">Connect external bank</button>
+                                <button type="button" class="header-dropdown__item" role="menuitem" id="quickLinksAdminHubBtn">Admin Hub</button>
                             </div>
                         </div>
                         <div class="header-dropdown-anchor">
@@ -1249,7 +1456,7 @@
             <div class="grid">
                 <section class="overview">
                     <h2>Your overview</h2>
-                    <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship—all in one place.</p>
+                    <p class="lead">Link external accounts to see balances and transactions alongside your BMO relationship, all in one place.</p>
 
                     <div class="cards">
                         <div class="card card--cash-tappable" id="cashCard">
@@ -1283,30 +1490,29 @@
                         </div>
                     </div>
 
-                    <div class="api-section">
-                        <h3>API endpoints</h3>
-                        <p class="api-lead">Test the BMO Open Banking API endpoints:</p>
-                        <div class="api-grid">
-                            <div class="api-card">
-                                <h4>Accounts</h4>
-                                <p>Retrieve account information including balances and account types.</p>
-                                <button type="button" class="api-btn" onclick="testEndpoint('/api/accounts', 'accounts')">Test Accounts API</button>
-                                <div id="accounts-loading" class="loading">Loading…</div>
-                                <div id="accounts-results" class="results"></div>
+                    <div class="card card--transactions" aria-labelledby="transactionsSectionLabel">
+                        <div class="card-cash-head">
+                            <div class="card-label" id="transactionsSectionLabel">Transactions</div>
+                            <button type="button" class="card-refresh-btn" id="txnRefreshBtn" aria-label="Refresh transactions">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                    <path d="M16 21h5v-5"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="lead">360 Account transactions, external account transactions appear as a separate tab when your connection includes the Transactions permissions.</p>
+                        <div class="txn-tabs" role="tablist" aria-label="Transaction source">
+                            <button type="button" class="txn-tab" role="tab" id="txnTabBmo" aria-selected="true" aria-controls="txnPanelBmo" data-txn-tab="bmo">BMO</button>
+                            <button type="button" class="txn-tab" role="tab" id="txnTabExt" hidden aria-selected="false" aria-controls="txnPanelExt" data-txn-tab="ext"></button>
+                        </div>
+                        <div class="txn-panel-wrap">
+                            <div id="txnPanelBmo" class="txn-panel is-active" role="tabpanel" aria-labelledby="txnTabBmo">
+                                <div class="txn-panel__inner" id="txnListBmo"></div>
                             </div>
-                            <div class="api-card">
-                                <h4>Transactions</h4>
-                                <p>Get transaction history and details for all accounts.</p>
-                                <button type="button" class="api-btn" onclick="testEndpoint('/api/transactions', 'transactions')">Test Transactions API</button>
-                                <div id="transactions-loading" class="loading">Loading…</div>
-                                <div id="transactions-results" class="results"></div>
-                            </div>
-                            <div class="api-card">
-                                <h4>Balance summary</h4>
-                                <p>View consolidated balance information across all accounts.</p>
-                                <button type="button" class="api-btn" onclick="testEndpoint('/api/balance', 'balance')">Test Balance API</button>
-                                <div id="balance-loading" class="loading">Loading…</div>
-                                <div id="balance-results" class="results"></div>
+                            <div id="txnPanelExt" class="txn-panel" role="tabpanel" aria-labelledby="txnTabExt">
+                                <div class="txn-panel__inner" id="txnListExt"></div>
                             </div>
                         </div>
                     </div>
@@ -1372,6 +1578,16 @@
                 </div>
             </div>
 
+            <div id="scopeSelection" style="display:none">
+                <h3 id="scopeModalTitle">Authorize data access</h3>
+                <p class="scope-lead">Select the data you want to share with BMO from <strong id="scopeBankName"></strong>. You can change this later.</p>
+                <div class="scope-checklist" id="scopeChecklist"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn modal-btn-secondary" id="scopeBackBtn">Back</button>
+                    <button type="button" class="modal-btn modal-btn-primary" id="scopeProceedBtn">Authorize &amp; connect</button>
+                </div>
+            </div>
+
             <div class="connection-status" id="connectionStatus">
                 <div class="status-icon status-loading" id="statusIcon">⏳</div>
                 <h3 id="statusTitle">Connecting…</h3>
@@ -1384,40 +1600,22 @@
         <div class="modal modal--cash-drill">
             <button type="button" class="modal-close-btn" id="cashBreakdownCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
             <h3 id="cashBreakdownTitle">Cash breakdown</h3>
-            <p class="cash-drill-lead">Primary and linked cash balances (demo drill-down).</p>
+            <p class="cash-drill-lead">BMO balances from the demo Accounts API; linked institution balances load when you refresh Cash and your connection allows account access.</p>
             <div class="cash-drill-scroll">
                 <section class="cash-drill-bank" aria-labelledby="cashBmoHeading">
                     <div class="cash-drill-bank__head">
                         <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> BMO <span class="cash-drill-badge">Primary</span></span>
                     </div>
-                    <div class="cash-drill-box">
-                        <div class="cash-drill-row">
-                            <span class="cash-drill-row__name">Premium Checking (****1234)</span>
-                            <span class="cash-drill-row__amt">$2,500.75</span>
-                        </div>
-                        <div class="cash-drill-row">
-                            <span class="cash-drill-row__name">Savings Builder (****5678)</span>
-                            <span class="cash-drill-row__amt">$15,750.20</span>
-                        </div>
-                    </div>
+                    <div class="cash-drill-box" id="cashDrillBmoBox"></div>
                 </section>
-                <section class="cash-drill-bank" aria-labelledby="cashTdHeading">
+                <section class="cash-drill-bank" id="cashDrillExtSection" style="display: none;" aria-labelledby="cashExtHeading">
                     <div class="cash-drill-bank__head">
-                        <span class="cash-drill-bank__title" id="cashTdHeading"><span class="cash-drill-brand-dot" aria-hidden="true"></span> TD Bank <span class="cash-drill-badge cash-drill-badge--ext">External</span></span>
+                        <span class="cash-drill-bank__title" id="cashExtHeading"><span class="cash-drill-brand-dot" aria-hidden="true"></span> <span id="cashExtBankLabel">External</span> <span class="cash-drill-badge cash-drill-badge--ext">Linked</span></span>
                         <button type="button" class="cash-drill-sync" id="cashDrillSyncTdBtn">
-                            <span aria-hidden="true">↻</span> Sync Data
+                            <span aria-hidden="true">↻</span> Sync
                         </button>
                     </div>
-                    <div class="cash-drill-box">
-                        <div class="cash-drill-row">
-                            <span class="cash-drill-row__name">Everyday Checking (****9012)</span>
-                            <span class="cash-drill-row__amt">$1,200.00</span>
-                        </div>
-                        <div class="cash-drill-row">
-                            <span class="cash-drill-row__name">High Interest Savings (****3456)</span>
-                            <span class="cash-drill-row__amt">$3,249.55</span>
-                        </div>
-                    </div>
+                    <div class="cash-drill-box" id="cashDrillExtBox"></div>
                 </section>
             </div>
         </div>
@@ -1431,8 +1629,26 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="adminHubModal" role="dialog" aria-modal="true" aria-labelledby="adminHubTitle" aria-hidden="true">
+        <div class="modal modal--admin-hub">
+            <button type="button" class="modal-close-btn" id="adminHubCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <h3 id="adminHubTitle">Admin Hub</h3>
+            <div id="adminHubContent">
+                <div class="admin-hub-status" id="adminHubStatus">
+                    <span class="admin-hub-status__dot admin-hub-status__dot--inactive" id="adminHubDot"></span>
+                    <span id="adminHubStatusText">Checking session&hellip;</span>
+                </div>
+                <div class="admin-hub-token-box admin-hub-token-box--empty" id="adminHubTokenBox">Loading&hellip;</div>
+                <div class="admin-hub-claims" id="adminHubClaims"></div>
+                <div class="admin-hub-actions">
+                    <button type="button" class="admin-hub-copy-btn" id="adminHubCopyBtn" disabled>Copy JWT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js"></script>
+    <script defer="defer" src="/web/bmo-ui.js?v=20260401c"></script>
 </body>
 </html>

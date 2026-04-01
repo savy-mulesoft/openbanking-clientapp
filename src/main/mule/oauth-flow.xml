@@ -63,6 +63,7 @@ output application/java
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/java
 var requestedScopes = (attributes.queryParams.access_types splitBy ",") map trim($)
+/* Must match Auth0 API permissions (FDX DataCluster-style names). */
 var allowedScopes = ["ACCOUNT_BASIC", "TRANSACTIONS", "CUSTOMER_CONTACT"]
 var invalidScopes = requestedScopes filter (!contains(allowedScopes, $))
 ---
@@ -85,7 +86,7 @@ output application/json
 {
     "error": "invalid_scope",
     "error_description": "Invalid FDX scopes requested: " ++ (payload.invalidScopes joinBy ","),
-    "allowed_scopes": ["ACCOUNT_BASIC", "TRANSACTIONS", "CUSTOMER_CONTACT"]
+    "allowed_scopes": payload.allowedScopes
 }]]></ee:set-payload>
                             </ee:message>
                         </ee:transform>
@@ -127,11 +128,14 @@ fun bankDisplayName(b, k) =
     else if (k == "scotia") "Scotiabank"
     else if (k == "cibc") "CIBC"
     else b default "External bank"
-fun fdxHuman(code) =
-    if (upper(code) == "ACCOUNT_BASIC") "Account balances"
-    else if (upper(code) == "TRANSACTIONS") "Transactions"
-    else if (upper(code) == "CUSTOMER_CONTACT") "Contact details"
+fun fdxHuman(code) = do {
+    var c = upper(code)
+    ---
+    if (c == "ACCOUNT_BASIC") "View basic account details and balances"
+    else if (c == "TRANSACTIONS") "View account transaction history"
+    else if (c == "CUSTOMER_CONTACT") "View verified contact information"
     else code
+}
 var bank = trim(attributes.queryParams.bank default "Bank")
 var accessTypesParam = trim(attributes.queryParams.access_types default "")
 var requestedTech = (accessTypesParam splitBy ",") map trim($)
@@ -276,6 +280,7 @@ output application/java
             </when>
             <otherwise>
                 <!-- Exchange authorization code for tokens -->
+                <set-variable value="#[attributes.queryParams.state default '']" variableName="callbackState" doc:name="Preserve callback state" doc:id="preserve-callback-state" />
                 <ee:transform doc:name="Prepare Token Request" doc:id="prepare-token-request">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
@@ -332,7 +337,7 @@ output application/json
                                 category="OAuth.Success"/>
                         
                         <try doc:name="Load pending consent from object store" doc:id="load-pending-consent">
-                            <os:retrieve doc:name="Retrieve pending consent" doc:id="retrieve-pending-consent" objectStore="oauth_object_store" key='#[%dw 2.0 var parts = (attributes.queryParams.state default "") splitBy "__OB__" --- if (sizeOf(parts) &gt; 0) "ob_oauth_pending__" ++ parts[sizeOf(parts) - 1] else "ob_oauth_pending__invalid"]' target="oauthPending" />
+                            <os:retrieve doc:name="Retrieve pending consent" doc:id="retrieve-pending-consent" objectStore="oauth_object_store" key='#[%dw 2.0 var parts = (vars.callbackState default "") splitBy "__OB__" --- if (sizeOf(parts) &gt; 0) "ob_oauth_pending__" ++ parts[sizeOf(parts) - 1] else "ob_oauth_pending__invalid"]' target="oauthPending" />
                             <error-handler>
                                 <on-error-continue enableNotifications="false" logException="false" doc:name="No pending record" doc:id="no-pending-consent" type="ANY">
                                     <set-variable value="#[null]" variableName="oauthPending" doc:name="Clear pending var" doc:id="clear-pending-var" />
@@ -345,11 +350,14 @@ output application/json
                             <ee:message>
                                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
-fun fdxHuman(code) =
-    if (upper(code as String) == "ACCOUNT_BASIC") "Account balances"
-    else if (upper(code as String) == "TRANSACTIONS") "Transactions"
-    else if (upper(code as String) == "CUSTOMER_CONTACT") "Contact details"
+fun fdxHuman(code) = do {
+    var c = upper(code as String)
+    ---
+    if (c == "ACCOUNT_BASIC") "View basic account details and balances"
+    else if (c == "TRANSACTIONS") "View account transaction history"
+    else if (c == "CUSTOMER_CONTACT") "View verified contact information"
     else code as String
+}
 fun bankBrandKey(b) = do {
     var u = upper(trim(b as String default ""))
     ---
@@ -370,7 +378,7 @@ fun bankDisplayNameFrom(b, k) =
 var currentTime = now()
 var sec = (payload.expires_in default 3600) as Number
 var expiresAt = currentTime + (("PT" ++ (sec as String) ++ "S") as Period)
-var stateRaw = attributes.queryParams.state default ""
+var stateRaw = vars.callbackState default ""
 var stateParts = stateRaw splitBy "__OB__"
 var fallbackBank = if (sizeOf(stateParts) > 0) trim(stateParts[0] as String) else ""
 var fallbackScopesCsv = if (sizeOf(stateParts) > 1) stateParts[1] else ""
@@ -418,7 +426,7 @@ var scopesCsv = mergedTech joinBy ","
                         </os:store>
                         
                         <try doc:name="Remove pending consent key" doc:id="remove-pending-consent">
-                            <os:remove doc:name="Delete pending consent" doc:id="delete-pending-consent" objectStore="oauth_object_store" key='#[%dw 2.0 var parts = (attributes.queryParams.state default "") splitBy "__OB__" --- if (sizeOf(parts) &gt; 0) "ob_oauth_pending__" ++ parts[sizeOf(parts) - 1] else "ob_oauth_pending__invalid"]' />
+                            <os:remove doc:name="Delete pending consent" doc:id="delete-pending-consent" objectStore="oauth_object_store" key='#[%dw 2.0 var parts = (vars.callbackState default "") splitBy "__OB__" --- if (sizeOf(parts) &gt; 0) "ob_oauth_pending__" ++ parts[sizeOf(parts) - 1] else "ob_oauth_pending__invalid"]' />
                             <error-handler>
                                 <on-error-continue enableNotifications="false" logException="false" doc:name="Ignore pending delete" doc:id="ignore-pending-delete" type="ANY" />
                             </error-handler>
@@ -428,6 +436,11 @@ var scopesCsv = mergedTech joinBy ","
                                 doc:id="log-token-storage" 
                                 message="OAuth tokens stored successfully in memory with session ID: #[payload.session_id], expires at: #[payload.expires_at]" 
                                 category="OAuth.TokenStorage"/>
+                        
+                        <logger level="INFO" doc:name="Log JWT for testing" 
+                                doc:id="log-jwt-for-testing" 
+                                message="ACCESS_TOKEN_START#[vars.oauthTokens.access_token]ACCESS_TOKEN_END" 
+                                category="OAuth.JWT"/>
                         
                         <!-- Redirect to frontend success page (bank/scopes from merged session, not opaque state) -->
                         <ee:transform doc:name="Set Success Redirect" doc:id="set-success-redirect">
