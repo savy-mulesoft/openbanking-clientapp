@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>e5c02810-ef86-427e-8e6b-f3d3abe55974</groupId>
     <artifactId>ob_client_bmo</artifactId>
-    <version>1.0.1</version>
+    <version>2.0.0</version>
     <packaging>mule-application</packaging>
     <name>ob_client_bmo</name>
     <properties>

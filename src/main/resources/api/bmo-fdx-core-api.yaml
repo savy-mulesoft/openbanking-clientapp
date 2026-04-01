@@ -1,0 +1,128 @@
+openapi: 3.0.3
+info:
+  title: BMO FDX Core API
+  description: |
+    FDX Core Banking API — BMO as Data Holder.
+
+    Exposes BMO account and transaction data using the **FDX Core API v6** contract.
+    Any FDX-compliant data recipient can consume this API with the same client code
+    used for TD, RBC, or any other FDX-aligned data holder.
+
+    **Endpoints mirror FDX Core operations:**
+    - `searchForAccounts` — `/fdx/v6/accounts`
+    - `searchForAccountTransactions` — `/fdx/v6/accounts/{accountId}/transactions`
+
+    **Security:** Bearer JWT with FDX audience and scope claims.
+    `ACCOUNT_BASIC` scope required for accounts; `TRANSACTIONS` for transactions.
+
+    **Governance:** Validated by `open_banking_core_ruleset.yaml` (AMF Validation Profile 1.0).
+  version: 1.0.0
+  contact:
+    name: Open Banking PoC Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8081/fdx/v6
+    description: Local Mule runtime — FDX base path
+  - url: https://bmo-ob-client.cloudhub.io/fdx/v6
+    description: CloudHub (placeholder)
+
+tags:
+  - name: Account Information
+    description: Search and view customer accounts (FDX Core)
+  - name: Account Transactions
+    description: Search and view account transactions (FDX Core)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /accounts:
+    parameters:
+      - $ref: './bmo-fdx-components.yaml#/components/parameters/FapiInteractionId'
+    get:
+      operationId: searchForAccounts
+      tags:
+        - Account Information
+      summary: Search for accounts
+      description: |
+        Returns consented deposit accounts for the resource owner.
+        Mirrors the FDX Core `searchForAccounts` operation.
+        Requires `ACCOUNT_BASIC` scope in the bearer token.
+      responses:
+        '200':
+          description: Accounts found
+          headers:
+            x-fapi-interaction-id:
+              $ref: './bmo-fdx-components.yaml#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/AccountsResponse'
+        '401':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+
+  /accounts/{accountId}/transactions:
+    parameters:
+      - $ref: './bmo-fdx-components.yaml#/components/parameters/FapiInteractionId'
+      - $ref: './bmo-fdx-components.yaml#/components/parameters/AccountIdPath'
+    get:
+      operationId: searchForAccountTransactions
+      tags:
+        - Account Transactions
+      summary: Search for account transactions
+      description: |
+        Returns paginated transactions for the specified account.
+        Mirrors the FDX Core `searchForAccountTransactions` operation.
+        Requires `TRANSACTIONS` scope in the bearer token.
+      parameters:
+        - name: startTime
+          in: query
+          required: false
+          description: ISO 8601 inclusive start filter
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          required: false
+          description: ISO 8601 inclusive end filter
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 25
+            maximum: 1000
+      responses:
+        '200':
+          description: Transactions page
+          headers:
+            x-fapi-interaction-id:
+              $ref: './bmo-fdx-components.yaml#/components/headers/FapiInteractionId'
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/TransactionsResponse'
+        '401':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './bmo-fdx-components.yaml#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      $ref: './bmo-fdx-components.yaml#/components/securitySchemes/BearerAuth'

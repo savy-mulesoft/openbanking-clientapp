@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  title: BMO FDX Consent API
+  description: |
+    FDX Consent Management API — OAuth 2.0 authorization code flow.
+
+    Manages the consent lifecycle for external bank connections:
+    1. **Initiate** — Validate FDX scopes, store pending consent, redirect to Auth0.
+    2. **Callback** — Exchange authorization code for JWT, merge consent metadata,
+       persist session in Object Store.
+    3. **Session** — Retrieve the active OAuth session (tokens, bank, scopes).
+    4. **Disconnect** — Revoke consent by removing the session from Object Store.
+
+    Maps to the FDX Consent domain (`fdxapi.consent.yaml`) adapted for the
+    Auth0 OAuth 2.0 authorization code grant with PKCE-ready state parameter.
+
+    **Identity Provider:** Auth0 (`dev-77sisti8b11ec8tp.us.auth0.com`)
+    **Audience:** `urn:fdx:tdbank`
+    **FDX Scopes:** `ACCOUNT_BASIC`, `TRANSACTIONS`, `CUSTOMER_CONTACT`
+  version: 1.0.0
+  contact:
+    name: Open Banking PoC Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8081
+    description: Local Mule runtime
+  - url: https://bmo-ob-client.cloudhub.io
+    description: CloudHub (placeholder)
+
+tags:
+  - name: Consent Initiation
+    description: Start the OAuth consent flow with an external data holder
+  - name: Consent Lifecycle
+    description: Retrieve, manage, and revoke consent sessions
+
+paths:
+  /api/auth/connect:
+    get:
+      operationId: initiateConsent
+      tags:
+        - Consent Initiation
+      summary: Start OAuth consent flow
+      description: |
+        Validates FDX scope parameters, stores a pending consent record in the
+        Object Store, and redirects the browser to Auth0's `/authorize` endpoint
+        with the appropriate audience, scope, and composite state parameter.
+
+        The state parameter encodes: `{bank}__OB__{scopes_csv}__OB__{uuid}`
+      parameters:
+        - name: bank
+          in: query
+          required: true
+          description: Bank identifier (e.g. TD, RBC, Scotia, CIBC)
+          schema:
+            type: string
+        - name: access_types
+          in: query
+          required: true
+          description: Comma-separated FDX scope codes (e.g. ACCOUNT_BASIC,TRANSACTIONS)
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to Auth0 authorize endpoint
+        '400':
+          description: Invalid or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/Error'
+
+  /callback:
+    get:
+      operationId: handleConsentCallback
+      tags:
+        - Consent Initiation
+      summary: OAuth callback (Auth0 redirect target)
+      description: |
+        Receives the authorization code from Auth0, preserves the state parameter,
+        exchanges the code for a JWT at Auth0's token endpoint, retrieves the
+        pending consent record from Object Store, merges tokens with consent
+        metadata, persists the session, and redirects to the UI.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Auth0
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          description: Composite state parameter (bank, scopes, UUID)
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to UI with status
+
+  /api/oauth/session:
+    get:
+      operationId: getConsentSession
+      tags:
+        - Consent Lifecycle
+      summary: Retrieve current consent session
+      description: |
+        Returns the stored OAuth session from the Object Store including
+        access token, bank name, brand, scopes, and expiry.
+        Used by the UI to sync local state after consent is granted.
+      responses:
+        '200':
+          description: Active consent session
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/OAuthSessionResponse'
+        '404':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/Error'
+
+  /api/oauth/disconnect:
+    post:
+      operationId: revokeConsent
+      tags:
+        - Consent Lifecycle
+      summary: Revoke consent (remove session)
+      description: |
+        Deletes the OAuth session from the Object Store, effectively revoking
+        the user's consent for the external bank connection.
+      responses:
+        '200':
+          description: Consent revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: disconnected
+                  message:
+                    type: string
+                    example: External bank connection removed

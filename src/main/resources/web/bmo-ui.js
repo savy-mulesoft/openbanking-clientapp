@@ -808,7 +808,7 @@
     function refreshCashBalances() {
         return syncOAuthSessionToLocal().then(function () {
             var conn = getStoredConnection();
-            var accReq = fetch('/api/accounts').then(function (r) {
+            var accReq = fetch('/fdx/v6/accounts').then(function (r) {
                 return r.json();
             });
             var tdReq = Promise.resolve({ ok: false, data: null });
@@ -977,7 +977,7 @@
     }
 
     function loadBmoTransactions() {
-        return fetch('/api/transactions')
+        return fetch('/fdx/v6/accounts/all/transactions')
             .then(function (r) {
                 return r.json();
             })

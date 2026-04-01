@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: BMO Aggregator API
+  description: |
+    BMO internal aggregator endpoints — **data recipient** role.
+
+    This API covers BMO-specific integration logic that is **not** governed by
+    the FDX standard. It proxies consented FDX requests to external data holders
+    (TD, RBC, etc.), aggregates balances, and provides demo/admin utilities.
+
+    The TD proxy responses still use FDX schemas (via `$ref` to components)
+    because the upstream TD resource server returns FDX-formatted data.
+
+    **Security:** TD proxy endpoints require a stored OAuth session with a valid JWT.
+  version: 1.0.0
+  contact:
+    name: Open Banking PoC Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8081
+    description: Local Mule runtime
+  - url: https://bmo-ob-client.cloudhub.io
+    description: CloudHub (placeholder)
+
+tags:
+  - name: External Bank Proxy
+    description: Proxy FDX requests to external resource servers using stored OAuth tokens
+  - name: Balance Aggregation
+    description: Aggregate balance data across BMO and linked external accounts
+  - name: Demo Management
+    description: Cache management and multi-user demo utilities
+
+security:
+  - OAuthSession: []
+
+paths:
+  /api/td/accounts:
+    get:
+      operationId: proxyTdAccounts
+      tags:
+        - External Bank Proxy
+      summary: Proxy — list TD accounts (FDX)
+      description: |
+        Retrieves the stored OAuth access token from the Object Store and forwards
+        a `GET /fdx/v6/accounts` request to the TD resource server with
+        `Authorization: Bearer <token>`. Requires `ACCOUNT_BASIC` scope.
+      responses:
+        '200':
+          description: FDX accounts response from TD
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/AccountsResponse'
+        '401':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+        '502':
+          $ref: './bmo-fdx-components.yaml#/components/responses/BadGateway'
+
+  /api/td/accounts/{accountId}/transactions:
+    get:
+      operationId: proxyTdAccountTransactions
+      tags:
+        - External Bank Proxy
+      summary: Proxy — list TD account transactions (FDX)
+      description: |
+        Proxies to `GET /fdx/v6/accounts/{accountId}/transactions` on the TD
+        resource server. Requires `TRANSACTIONS` scope in the stored JWT.
+      parameters:
+        - $ref: './bmo-fdx-components.yaml#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: FDX transactions response from TD
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/TransactionsResponse'
+        '401':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './bmo-fdx-components.yaml#/components/responses/Forbidden'
+        '502':
+          $ref: './bmo-fdx-components.yaml#/components/responses/BadGateway'
+
+  /api/balance:
+    get:
+      operationId: getAggregatedBalance
+      tags:
+        - Balance Aggregation
+      summary: Get aggregated balance with OAuth context
+      description: |
+        Returns total balance across BMO accounts. If a valid OAuth session
+        exists, includes authenticated context metadata; otherwise returns
+        a 401 fallback.
+      security: []
+      responses:
+        '200':
+          description: Authenticated balance with OAuth metadata
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/BalanceResponse'
+        '401':
+          description: No valid OAuth tokens — fallback data returned
+          content:
+            application/json:
+              schema:
+                $ref: './bmo-fdx-components.yaml#/components/schemas/BalanceFallbackResponse'
+
+  /api/clear-cache:
+    post:
+      operationId: clearAllCaches
+      tags:
+        - Demo Management
+      summary: Clear all caches and OAuth session
+      security: []
+      responses:
+        '200':
+          description: Caches cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: cleared
+
+  /api/store-token:
+    post:
+      operationId: storeUserToken
+      tags:
+        - Demo Management
+      summary: Store per-user token and scopes
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                accessToken:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Token stored
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/user-data:
+    get:
+      operationId: getUserData
+      tags:
+        - Demo Management
+      summary: Get cached user data
+      security: []
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User data
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/connected-users:
+    get:
+      operationId: getConnectedUsers
+      tags:
+        - Demo Management
+      summary: List connected users
+      security: []
+      responses:
+        '200':
+          description: Connected users list
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  securitySchemes:
+    OAuthSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth 2.0 access token (JWT) stored server-side in the Object Store.
+        Obtained via Auth0 authorization code flow. Audience: urn:fdx:tdbank.

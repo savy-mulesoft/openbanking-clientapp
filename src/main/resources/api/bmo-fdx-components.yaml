@@ -1,0 +1,293 @@
+openapi: 3.0.3
+info:
+  title: BMO FDX Shared Components
+  description: |
+    Shared FDX-aligned schemas, parameters, headers, and responses used across
+    the BMO Open Banking API specs (Core, Consent, Aggregator).
+
+    Follows the FDX `fdxapi.components.yaml` pattern — a single source of truth
+    for data types that multiple specs reference via `$ref`.
+  version: 1.0.0
+  contact:
+    name: Open Banking PoC Team
+  license:
+    name: Proprietary
+
+paths: {}
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth 2.0 access token (JWT) with FDX audience and scope claims.
+        Issued by Auth0, validated via JWKS by Anypoint API Manager.
+
+  headers:
+    FapiInteractionId:
+      description: FAPI interaction ID for end-to-end request tracing
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    FapiInteractionId:
+      name: x-fapi-interaction-id
+      in: header
+      required: false
+      description: Unique identifier for the API interaction (FAPI standard)
+      schema:
+        type: string
+        format: uuid
+
+    AccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      description: FDX account identifier
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "401"
+            message: "Unauthorized — invalid or missing access token"
+
+    Forbidden:
+      description: Token valid but insufficient FDX scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "403"
+            message: "Forbidden — required FDX scope not granted"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "404"
+            message: "Resource not found"
+
+    BadGateway:
+      description: Upstream resource server unreachable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "502"
+            message: "External resource server unreachable"
+
+  schemas:
+    DepositAccount:
+      type: object
+      title: Deposit Account
+      description: FDX Core v6 account representation
+      required: [accountCategory, accountId]
+      properties:
+        accountCategory:
+          type: string
+          enum: [DEPOSIT_ACCOUNT, LOC_ACCOUNT]
+          description: FDX account category
+        accountId:
+          type: string
+          description: Unique account identifier
+        nickname:
+          type: string
+          description: Human-readable account label
+        status:
+          type: string
+          enum: [OPEN, CLOSED, NEGATIVE_CURRENT_BALANCE]
+          description: Account status
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: CAD
+        balanceAsOf:
+          type: string
+          format: date-time
+          description: Timestamp of last balance update
+        currentBalance:
+          type: number
+          format: double
+          description: Current ledger balance
+        availableBalance:
+          type: number
+          format: double
+          description: Available funds
+
+    Transaction:
+      type: object
+      title: Transaction
+      description: FDX Core v6 transaction representation
+      required: [transactionId, accountId, postedTimestamp, amount, debitCreditMemo]
+      properties:
+        accountCategory:
+          type: string
+          description: FDX account category
+          example: DEPOSIT_ACCOUNT
+        accountId:
+          type: string
+          description: Account the transaction belongs to
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+        postedTimestamp:
+          type: string
+          format: date-time
+          description: Date/time the transaction was posted
+        description:
+          type: string
+          description: Human-readable transaction description
+        debitCreditMemo:
+          type: string
+          enum: [DEBIT, CREDIT]
+          description: Indicates whether the transaction is a debit or credit
+        amount:
+          type: number
+          format: double
+          description: Transaction amount (always positive; sign indicated by debitCreditMemo)
+        payee:
+          type: string
+          nullable: true
+          description: Payee or counterparty name
+
+    PageMetadata:
+      type: object
+      title: Page Metadata
+      description: FDX pagination metadata
+      properties:
+        total:
+          type: integer
+          format: int64
+          nullable: true
+        nextOffset:
+          type: string
+          nullable: true
+
+    AccountsResponse:
+      type: object
+      title: Accounts Response
+      description: FDX-aligned paginated accounts list
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositAccount'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    TransactionsResponse:
+      type: object
+      title: Transactions Response
+      description: FDX-aligned paginated transactions list
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    OAuthSessionResponse:
+      type: object
+      title: OAuth Session
+      description: Active OAuth session data from the Object Store
+      properties:
+        access_token:
+          type: string
+        id_token:
+          type: string
+        token_type:
+          type: string
+        expires_at:
+          type: string
+        session_id:
+          type: string
+        bankName:
+          type: string
+        bankDisplayName:
+          type: string
+        bankBrand:
+          type: string
+        requested_scopes:
+          type: string
+        scopes_technical:
+          type: array
+          items:
+            type: string
+        scopes_human:
+          type: array
+          items:
+            type: string
+        access_token_format:
+          type: string
+
+    BalanceResponse:
+      type: object
+      title: Balance Response
+      description: Aggregated balance with OAuth context
+      properties:
+        totalBalance:
+          type: object
+          properties:
+            amount:
+              type: number
+            currency:
+              type: string
+            lastUpdated:
+              type: string
+              format: date-time
+        accountBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositAccount'
+        oauthStatus:
+          type: object
+          properties:
+            authenticated:
+              type: boolean
+            sessionId:
+              type: string
+            tokenPresent:
+              type: boolean
+            dataSource:
+              type: string
+
+    BalanceFallbackResponse:
+      type: object
+      title: Balance Fallback
+      description: Returned when no OAuth session exists
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        fallbackData:
+          type: object
+
+    Error:
+      type: object
+      title: Error
+      description: Standard error envelope
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

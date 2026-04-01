@@ -1,6 +1,6 @@
 # BMO Open Banking — Technical Specification
 
-> **Version:** 1.0.0  
+> **Version:** 2.0.0  
 > **Date:** 2026-03-31  
 > **Status:** Proof of Concept  
 > **Authors:** Open Banking PoC Team
@@ -38,7 +38,8 @@ graph TB
 
     subgraph BMO["BMO Client App — Mule 4.10.5"]
         UI["ui-flow<br/>HTML + JS serving"]
-        API["bmo-client-api-flow<br/>Mock accounts/txns/balance"]
+        FDXCore["bmo-fdx-core-flow<br/>GET /fdx/v6/accounts<br/>GET /fdx/v6/accounts/{id}/transactions"]
+        API["bmo-client-api-flow<br/>GET /api/balance (Aggregator)"]
         OAuth["oauth-flow<br/>Connect · Callback · Session · Disconnect"]
         Proxy["td-proxy-flow<br/>Bearer JWT relay"]
         Cache["cache-management-flow<br/>Multi-user demo tokens"]
@@ -62,6 +63,7 @@ graph TB
     end
 
     Browser -->|"GET /"| UI
+    Browser -->|"fetch /fdx/v6/*"| FDXCore
     Browser -->|"fetch /api/*"| API
     Browser -.->|"302 redirect"| Authorize
     Authorize -.->|"302 /callback?code&state"| OAuth
@@ -83,6 +85,7 @@ graph TB
 | Runtime | Mule 4 Enterprise 4.10.5 | Anypoint ecosystem, CloudHub deployment, API Manager integration |
 | IdP | Auth0 (SaaS) | Fast PoC setup, OIDC + custom scopes, JWKS endpoint for gateway validation |
 | API Standard | FDX Core API v6 | Canadian Open Banking alignment, standardised account/transaction semantics |
+| Spec Organization | 3-spec FDX split (Core, Consent, Aggregator) + shared components | Mirrors FDX's own `fdxapi.core.yaml` / `fdxapi.consent.yaml` / `fdxapi.components.yaml` pattern; enables per-domain governance |
 | Data Schema | FDX-aligned for both BMO and TD | Both data holders return identical FDX fields (`accountId`, `currentBalance`, `debitCreditMemo`, etc.) — a single client parser works for any bank |
 | Token Storage | Mule Object Store | Server-side JWT persistence, no tokens exposed to browser |
 | Client UI | Vanilla HTML/CSS/JS (ES5) | Zero build tooling, embedded in Mule classpath, no framework dependencies |
@@ -101,8 +104,8 @@ sequenceDiagram
     participant TD as TD App (CloudHub)
 
     User->>Browser: Open BMO dashboard
-    Browser->>BMO: GET /api/accounts
-    BMO-->>Browser: BMO mock accounts (Chequing, Savings, Credit Card)
+    Browser->>BMO: GET /fdx/v6/accounts
+    BMO-->>Browser: BMO accounts (FDX schema)
     Browser->>Browser: Calculate BMO total ($17,400.50)
 
     alt External bank connected (JWT in Object Store)
@@ -227,7 +230,8 @@ The user can remove an external connection. The client immediately clears local 
 |-----------------|-------|----------------|
 | `global.xml` | HTTP Listener (8081), HTTP Requester, Object Store definition | Shared infrastructure |
 | `ui-flow.xml` | `ui-main-flow`, `serve-bmo-ui-js-flow` | Serve SPA (HTML + JS) |
-| `ui-flow.xml` | `bmo-client-api-flow`, `get-accounts-flow`, `get-transactions-flow`, `get-balance-flow` | BMO data APIs (FDX-aligned schemas) |
+| `ui-flow.xml` | `bmo-fdx-core-flow` | FDX Core: `/fdx/v6/accounts`, `/fdx/v6/accounts/{id}/transactions` |
+| `ui-flow.xml` | `bmo-client-api-flow`, `get-accounts-flow`, `get-transactions-flow`, `get-balance-flow` | Mock data providers + aggregated balance |
 | `oauth-flow.xml` | `oauth-connect-flow` | Initiate consent: validate params, store pending consent, redirect to Auth0 |
 | `oauth-flow.xml` | `oauth-callback-flow` | Handle Auth0 callback: exchange code, merge consent metadata, persist session |
 | `oauth-flow.xml` | `oauth-session-http-flow`, `oauth-disconnect-http-flow` | Session retrieval and teardown |
@@ -360,21 +364,42 @@ The TD resource server has a **JWT Validation** policy applied via **Autodiscove
 
 ## 7. API Surface
 
-### 7.1 BMO Client API
+### 7.1 BMO API Specs (FDX-Aligned Split)
+
+The BMO API is organized into **three domain-specific OpenAPI specs** plus a **shared components** file, following the same pattern FDX uses for its own standard (`fdxapi.core.yaml`, `fdxapi.consent.yaml`, `fdxapi.components.yaml`).
+
+| Spec File | Exchange Asset | Domain |
+|-----------|---------------|--------|
+| `bmo-fdx-core-api.yaml` | `ob-bmo-fdx-core` v1.0.0 | FDX Core — accounts & transactions (data holder) |
+| `bmo-fdx-consent-api.yaml` | `ob-bmo-fdx-consent` v1.0.0 | Consent — OAuth lifecycle (connect, callback, session) |
+| `bmo-aggregator-api.yaml` | `ob-bmo-aggregator` v1.0.0 | Aggregator — TD proxy, balance, demo utils (internal) |
+| `bmo-fdx-components.yaml` | — (shared, not published standalone) | Shared schemas (DepositAccount, Transaction, Error, etc.) |
+
+#### FDX Core API (`bmo-fdx-core-api.yaml`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/fdx/v6/accounts` | Bearer JWT | Search for BMO accounts (FDX `searchForAccounts`) |
+| `GET` | `/fdx/v6/accounts/{accountId}/transactions` | Bearer JWT | Search for account transactions (FDX `searchForAccountTransactions`) |
+
+#### Consent API (`bmo-fdx-consent-api.yaml`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/auth/connect` | None | Initiate OAuth consent flow |
+| `GET` | `/callback` | None | OAuth callback (Auth0 redirect target) |
+| `GET` | `/api/oauth/session` | None | Retrieve current consent session |
+| `POST` | `/api/oauth/disconnect` | None | Revoke consent (remove session) |
+
+#### Aggregator API (`bmo-aggregator-api.yaml`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/` | None | Serve SPA HTML |
 | `GET` | `/web/bmo-ui.js` | None | Serve UI JavaScript |
-| `GET` | `/api/accounts` | None | BMO accounts (FDX schema) |
-| `GET` | `/api/transactions` | None | BMO transactions (FDX schema) |
 | `GET` | `/api/balance` | None | Aggregated balance with OAuth context |
 | `GET` | `/api/td/accounts` | OAuth Session | Proxy to TD `/fdx/v6/accounts` |
 | `GET` | `/api/td/accounts/{id}/transactions` | OAuth Session | Proxy to TD `/fdx/v6/accounts/{id}/transactions` |
-| `GET` | `/api/auth/connect` | None | Initiate OAuth consent flow |
-| `GET` | `/callback` | None | OAuth callback (Auth0 redirect target) |
-| `GET` | `/api/oauth/session` | None | Retrieve current session |
-| `POST` | `/api/oauth/disconnect` | None | Remove OAuth session |
 | `POST` | `/api/clear-cache` | None | Clear all caches |
 | `POST` | `/api/store-token` | None | Store per-user token |
 | `GET` | `/api/user-data` | None | Get cached user data |
@@ -454,7 +479,7 @@ graph LR
 # BMO Client — build and deploy to local Mule standalone
 cd ob_client_bmo
 mvn clean package -DskipTests
-cp target/ob_client_bmo-1.0.0-SNAPSHOT-mule-application.jar \
+cp target/ob_client_bmo-*.jar \
    $MULE_HOME/apps/
 
 # TD App — deployed on CloudHub via Runtime Manager
