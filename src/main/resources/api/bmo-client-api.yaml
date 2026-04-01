@@ -25,7 +25,7 @@ info:
       FDX DataCluster conventions (`ACCOUNT_BASIC`, `TRANSACTIONS`).
     - BMO-internal endpoints (`/api/accounts`, `/api/transactions`) return mock data
       and do not require authentication in this PoC.
-  version: 1.0.0
+  version: 1.0.1
   contact:
     name: Open Banking PoC Team
   license:
@@ -268,16 +268,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OAuthSessionResponse'
-        '200 ':
+        '404':
           description: No active session
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  error:
                     type: string
                     example: no_session
+                  error_description:
+                    type: string
+                    example: No OAuth session on server
 
   /api/oauth/disconnect:
     post:
