@@ -141,6 +141,7 @@
             position: sticky;
             top: 0;
             z-index: 40;
+            overflow: visible;
         }
 
         .header-toolbar {
@@ -362,11 +363,15 @@
 
         @media (max-width: 430px) {
             .header-dropdown {
-                position: fixed;
-                left: 16px;
-                right: 16px;
-                min-width: 0;
-                width: auto;
+                position: absolute;
+                right: 0;
+                left: auto;
+                min-width: 200px;
+                max-width: calc(100vw - 32px);
+            }
+            .header-toolbar .header-dropdown-anchor:first-child .header-dropdown {
+                left: 0;
+                right: auto;
             }
         }
 
@@ -1427,6 +1432,46 @@
             color: var(--bmo-teal-dark);
             font-weight: 500;
         }
+
+        .modal--advisor { position: relative; max-width: 440px; }
+        .advisor-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(0,112,120,0.06) 0%, rgba(0,112,120,0.02) 100%);
+            border: 1px solid rgba(0,112,120,0.15);
+            border-radius: var(--radius-md);
+            margin-bottom: 18px;
+        }
+        .advisor-avatar {
+            width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(145deg, #007078 0%, #005c66 100%);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700;
+        }
+        .advisor-banner-text { flex: 1; min-width: 0; }
+        .advisor-banner-name { font-weight: 600; font-size: 15px; color: var(--text); }
+        .advisor-banner-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .advisor-msg {
+            font-size: 15px; line-height: 1.6; color: var(--text); margin-bottom: 20px;
+        }
+        .advisor-msg strong { color: var(--bmo-teal-dark); }
+        .advisor-bank-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
+            margin-bottom: 16px; background: rgba(12,35,64,0.02);
+        }
+        .advisor-bank-logo {
+            width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+            overflow: hidden; border: 1px solid var(--border); background: #fff;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .advisor-bank-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .advisor-bank-info { flex: 1; }
+        .advisor-bank-name { font-weight: 600; font-size: 15px; color: var(--text); }
+        .advisor-bank-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .advisor-scope-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -1696,8 +1741,46 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="advisorModal" role="dialog" aria-modal="true" aria-labelledby="advisorTitle" aria-hidden="true">
+        <div class="modal modal--advisor">
+            <button type="button" class="modal-close-btn" id="advisorCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <h3 id="advisorTitle">Message from your Advisor</h3>
+
+            <div class="advisor-banner">
+                <div class="advisor-avatar" aria-hidden="true">SR</div>
+                <div class="advisor-banner-text">
+                    <div class="advisor-banner-name">Sarah Robertson</div>
+                    <div class="advisor-banner-role">Senior Financial Advisor &bull; BMO Wealth</div>
+                </div>
+            </div>
+
+            <div class="advisor-msg">
+                Hi John,<br><br>
+                To provide you with <strong>better investment recommendations</strong> and a more complete picture of your financial health, I'd like to view your accounts and recent transactions at <strong>TD Canada Trust</strong>.<br><br>
+                This will allow me to analyze your full cash flow, identify optimization opportunities, and tailor my strategy to your complete financial profile. Please authorize the access below.
+            </div>
+
+            <div class="advisor-bank-row">
+                <div class="advisor-bank-logo">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg" alt="TD" width="44" height="44" />
+                </div>
+                <div class="advisor-bank-info">
+                    <div class="advisor-bank-name">TD Canada Trust</div>
+                    <div class="advisor-bank-sub">Requested by your advisor</div>
+                </div>
+            </div>
+
+            <div class="advisor-scope-list" id="advisorScopeList"></div>
+
+            <div class="modal-buttons">
+                <button type="button" class="modal-btn modal-btn-secondary" id="advisorDeclineBtn">Decline</button>
+                <button type="button" class="modal-btn modal-btn-primary" id="advisorAuthorizeBtn">Authorize &amp; connect</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js?v=20260401f"></script>
+    <script defer="defer" src="/web/bmo-ui.js?v=20260401g"></script>
 </body>
 </html>

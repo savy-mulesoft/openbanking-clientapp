@@ -497,9 +497,11 @@
         var ext = document.getElementById('externalDetailModal');
         var cash = document.getElementById('cashBreakdownModal');
         var admin = document.getElementById('adminHubModal');
+        var advisor = document.getElementById('advisorModal');
         var open =
             (conn && conn.classList.contains('is-open')) ||
             (admin && admin.classList.contains('is-open')) ||
+            (advisor && advisor.classList.contains('is-open')) ||
             (ext && ext.classList.contains('is-open')) ||
             (cash && cash.classList.contains('is-open'));
         if (open) {
@@ -1351,6 +1353,77 @@
         syncModalOpenBodyClass();
     }
 
+    function openAdvisorModal() {
+        window.closeConnectionModal();
+        closeExternalDetailModal();
+        closeCashBreakdownModal();
+        closeAdminHub();
+
+        var scopeList = document.getElementById('advisorScopeList');
+        if (scopeList) {
+            scopeList.innerHTML = '';
+            var advisorScopes = [
+                { code: 'ACCOUNT_BASIC', preselected: true },
+                { code: 'TRANSACTIONS', preselected: true }
+            ];
+            advisorScopes.forEach(function (s) {
+                var label = document.createElement('label');
+                label.className = 'scope-item';
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = s.code;
+                cb.checked = true;
+                cb.disabled = true;
+                var textDiv = document.createElement('div');
+                textDiv.className = 'scope-item-text';
+                var nameSpan = document.createElement('div');
+                nameSpan.className = 'scope-item-label';
+                nameSpan.textContent = FDX_SCOPE_MAP[s.code] || s.code;
+                var codeSpan = document.createElement('div');
+                codeSpan.className = 'scope-item-code';
+                codeSpan.textContent = s.code;
+                textDiv.appendChild(nameSpan);
+                textDiv.appendChild(codeSpan);
+                label.appendChild(cb);
+                label.appendChild(textDiv);
+                scopeList.appendChild(label);
+            });
+        }
+
+        var m = document.getElementById('advisorModal');
+        if (!m) return;
+        m.style.display = 'flex';
+        m.classList.add('is-open');
+        m.setAttribute('aria-hidden', 'false');
+        syncModalOpenBodyClass();
+
+        var badge = document.getElementById('notifBadge');
+        var btn = document.getElementById('notifBtn');
+        if (badge) badge.style.display = 'none';
+        if (btn) btn.classList.remove('has-alert');
+    }
+
+    function closeAdvisorModal() {
+        var m = document.getElementById('advisorModal');
+        if (m) {
+            m.classList.remove('is-open');
+            m.style.display = 'none';
+            m.setAttribute('aria-hidden', 'true');
+        }
+        syncModalOpenBodyClass();
+    }
+
+    function advisorAuthorize() {
+        closeAdvisorModal();
+        _selectedBank = 'TD';
+        setPendingBankChoice('TD');
+        var scopes = ['ACCOUNT_BASIC', 'TRANSACTIONS'];
+        var oauthUrl =
+            '/api/auth/connect?bank=' + encodeURIComponent('TD') +
+            '&access_types=' + encodeURIComponent(scopes.join(','));
+        window.location.href = oauthUrl;
+    }
+
     function wireDom() {
         var qlToggle = document.getElementById('quickLinksToggle');
         var qlDropdown = document.getElementById('quickLinksDropdown');
@@ -1465,11 +1538,8 @@
 
         if (notifItem1) {
             notifItem1.addEventListener('click', function () {
-                showNotification(
-                    'Important message from your Advisor — Authorize Account Consolidation',
-                    'warn'
-                );
                 closeNotifDropdown();
+                openAdvisorModal();
             });
         }
 
@@ -1674,6 +1744,20 @@
         wireInfoBtn('overviewInfoBtn', 'overviewInfoTip');
         wireInfoBtn('cashInfoBtn', 'cashInfoTip');
         wireInfoBtn('txnInfoBtn', 'txnInfoTip');
+
+        var advisorCloseBtn = document.getElementById('advisorCloseBtn');
+        if (advisorCloseBtn) advisorCloseBtn.addEventListener('click', closeAdvisorModal);
+        var advisorDeclineBtn = document.getElementById('advisorDeclineBtn');
+        if (advisorDeclineBtn) advisorDeclineBtn.addEventListener('click', function () {
+            closeAdvisorModal();
+            showNotification('You can authorize this later from Quick Links.', 'warn');
+        });
+        var advisorAuthBtn = document.getElementById('advisorAuthorizeBtn');
+        if (advisorAuthBtn) advisorAuthBtn.addEventListener('click', advisorAuthorize);
+        var advisorOverlay = document.getElementById('advisorModal');
+        if (advisorOverlay) advisorOverlay.addEventListener('click', function (e) {
+            if (e.target.id === 'advisorModal') closeAdvisorModal();
+        });
 
     }
 
