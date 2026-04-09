@@ -137,10 +137,13 @@ fun fdxHuman(code) = do {
     else code
 }
 var bank = trim(attributes.queryParams.bank default "Bank")
+var displayOverride = trim(attributes.queryParams.bank_display default "")
+var extBankId = trim(attributes.queryParams.external_bank_id default "")
 var accessTypesParam = trim(attributes.queryParams.access_types default "")
 var requestedTech = (accessTypesParam splitBy ",") map trim($)
 var brand = bankBrandKey(bank)
 var scopesHuman = requestedTech map fdxHuman($)
+var resolvedDisplay = if (!isEmpty(displayOverride)) displayOverride else bankDisplayName(bank, brand)
 /* Composite state echoed by Auth0: bank __OB__ scopes __OB__ uuid — pending OS key uses uuid only; callback can fall back if OS miss */
 var uuidPart = uuid()
 var compositeState = bank ++ "__OB__" ++ accessTypesParam ++ "__OB__" ++ uuidPart
@@ -165,8 +168,9 @@ var queryString = (authParams pluck ((value, key) -> "$(key)=" ++ encodeURICompo
     pendingOsKey: pendingOsKey,
     pendingConsent: {
         bankName: bank,
-        bankDisplayName: bankDisplayName(bank, brand),
+        bankDisplayName: resolvedDisplay,
         bankBrand: brand,
+        externalBankId: extBankId,
         scopesTechnical: requestedTech,
         scopesHuman: scopesHuman,
         accessTypesCsv: accessTypesParam,
@@ -397,6 +401,7 @@ var bankName = if (hasPendingBank) (p.bankName as String) else (if (!isEmpty(fal
 var pendingBrandRaw = trim(p.bankBrand default "")
 var bankBrand = if (!isEmpty(pendingBrandRaw) and lower(pendingBrandRaw) != "default") (p.bankBrand as String) else bankBrandKey(bankName)
 var bankDisplayName = if (!isEmpty(p.bankDisplayName default "")) (p.bankDisplayName as String) else bankDisplayNameFrom(bankName, bankBrand)
+var extId = trim(p.externalBankId default "")
 var scopesCsv = mergedTech joinBy ","
 ---
 {
@@ -410,6 +415,7 @@ var scopesCsv = mergedTech joinBy ","
     bankName: bankName,
     bankDisplayName: bankDisplayName,
     bankBrand: bankBrand,
+    externalBankId: extId,
     requested_scopes: scopesCsv,
     scopes_technical: mergedTech,
     scopes_human: mergedHuman,
@@ -449,11 +455,11 @@ var scopesCsv = mergedTech joinBy ","
 output application/java
 import * from dw::core::URL
 var s = vars.oauthTokens
-var bankName = s.bankName default "Bank"
+var bankForUrl = trim((s.bankDisplayName default s.bankName) default "Bank")
 var scopesCsv = s.requested_scopes default ""
 ---
 {
-    redirectLocation: "${frontend.base_url}/?status=success&bank=" ++ encodeURIComponent(bankName as String) ++ "&scopes=" ++ encodeURIComponent(scopesCsv as String),
+    redirectLocation: "${frontend.base_url}/?status=success&bank=" ++ encodeURIComponent(bankForUrl as String) ++ "&scopes=" ++ encodeURIComponent(scopesCsv as String),
     httpStatus: 302
 }]]></ee:set-payload>
                             </ee:message>
@@ -638,6 +644,7 @@ var bankNameRaw = trim((s.bankName default s.bank_name) default "")
 var rawBrand = trim((s.bankBrand default s.bank_brand) default "")
 var bankBrandOut = if (!isEmpty(rawBrand) and lower(rawBrand) != "default") rawBrand else bankBrandKey(bankNameRaw)
 var dispRaw = trim((s.bankDisplayName default s.bank_display_name) default "")
+var extIdRaw = trim((s.externalBankId default s.external_bank_id) default "")
 ---
 {
     access_token: s.access_token,
@@ -648,6 +655,7 @@ var dispRaw = trim((s.bankDisplayName default s.bank_display_name) default "")
     bankName: bankNameRaw,
     bankDisplayName: if (!isEmpty(dispRaw)) dispRaw else bankNameRaw,
     bankBrand: bankBrandOut,
+    externalBankId: extIdRaw,
     requested_scopes: s.requested_scopes,
     scopes_technical: s.scopes_technical default [],
     scopes_human: s.scopes_human default [],

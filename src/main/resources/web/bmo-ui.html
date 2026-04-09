@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#004C51">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>BMO Open Banking</title>
+    <title>Open Banking</title>
     <style>
         :root {
             --bmo-teal: #007078;
@@ -1051,6 +1051,25 @@
         .status-success { background: #0d9f6e; color: white; }
         .status-loading { background: #e8ecf0; color: #6b7c8d; }
 
+        .css-spinner {
+            display: inline-block; width: 28px; height: 28px;
+            border: 3px solid #c5ccd4; border-top-color: #0079c1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .css-lock {
+            display: inline-block; width: 20px; height: 14px;
+            border: 3px solid #0d9f6e; border-radius: 3px; position: relative;
+        }
+        .css-lock::before {
+            content: ''; position: absolute; top: -12px; left: 3px;
+            width: 10px; height: 10px;
+            border: 3px solid #0d9f6e; border-bottom: none;
+            border-radius: 8px 8px 0 0;
+        }
+
         body.modal-open { overflow: hidden; touch-action: none; }
 
         .toast-host {
@@ -1480,12 +1499,12 @@
             <header class="app-header">
                 <div class="header-row">
                     <div class="logo">
-                        <div class="logo-icon" role="img" aria-label="BMO">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&amp;s" alt="BMO" width="42" height="42" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=&quot;font-size:14px;font-weight:800;color:#fff&quot;>BMO</span>'" />
+                        <div class="logo-icon" role="img" aria-label="Bank" id="primaryLogoWrap">
+                            <img id="primaryLogoImg" src="" alt="" width="42" height="42" style="display:none" />
                         </div>
                         <div class="logo-text">
-                            <h1>Open Banking</h1>
-                            <p>Proof of concept</p>
+                            <h1 id="primaryAppTitle">Open Banking</h1>
+                            <p id="primaryAppSubtitle">Proof of concept</p>
                         </div>
                     </div>
                     <span class="badge">Sandbox</span>
@@ -1603,7 +1622,7 @@
                         </div>
                         <div class="info-tooltip" id="txnInfoTip">360 Account transactions. External account transactions appear as a separate tab when your connection includes the Transactions permission.</div>
                         <div class="txn-tabs" role="tablist" aria-label="Transaction source">
-                            <button type="button" class="txn-tab" role="tab" id="txnTabBmo" aria-selected="true" aria-controls="txnPanelBmo" data-txn-tab="bmo">BMO</button>
+                            <button type="button" class="txn-tab" role="tab" id="txnTabBmo" aria-selected="true" aria-controls="txnPanelBmo" data-txn-tab="bmo">Primary</button>
                             <button type="button" class="txn-tab" role="tab" id="txnTabExt" hidden aria-selected="false" aria-controls="txnPanelExt" data-txn-tab="ext"></button>
                         </div>
                         <div class="txn-panel-wrap">
@@ -1628,44 +1647,7 @@
                 <h3 id="modalTitle">Connect your bank</h3>
                 <p>Choose your financial institution to securely link your accounts.</p>
 
-                <div class="bank-list">
-                    <div class="bank-option" onclick="selectBank('RBC')">
-                        <div class="bank-icon" aria-hidden="true">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxnYZQANBWQdJQ9IWBEppHxJFAUpC1W00yyQ&amp;s" alt="" width="40" height="40" loading="lazy" />
-                        </div>
-                        <div>
-                            <div class="bank-name">Royal Bank of Canada</div>
-                            <div class="bank-sub">Personal &amp; business banking</div>
-                        </div>
-                    </div>
-                    <div class="bank-option" onclick="selectBank('TD')">
-                        <div class="bank-icon" aria-hidden="true">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg" alt="" width="40" height="40" loading="lazy" />
-                        </div>
-                        <div>
-                            <div class="bank-name">TD Canada Trust</div>
-                            <div class="bank-sub">Personal &amp; business banking</div>
-                        </div>
-                    </div>
-                    <div class="bank-option" onclick="selectBank('Scotia')">
-                        <div class="bank-icon" aria-hidden="true">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSc3vraaVxRZK-kXdRhvSrdiGxvvkfZxw296A&amp;s" alt="" width="40" height="40" loading="lazy" />
-                        </div>
-                        <div>
-                            <div class="bank-name">Scotiabank</div>
-                            <div class="bank-sub">Personal &amp; business banking</div>
-                        </div>
-                    </div>
-                    <div class="bank-option" onclick="selectBank('CIBC')">
-                        <div class="bank-icon" aria-hidden="true">
-                            <img src="https://reseaucapital.com/wp-content/uploads/2017/10/unnamed.png" alt="" width="40" height="40" loading="lazy" />
-                        </div>
-                        <div>
-                            <div class="bank-name">CIBC</div>
-                            <div class="bank-sub">Personal &amp; business banking</div>
-                        </div>
-                    </div>
-                </div>
+                <div class="bank-list" id="connectBankList"></div>
 
                 <div class="modal-buttons">
                     <button type="button" class="modal-btn modal-btn-secondary" onclick="closeConnectionModal()">Cancel</button>
@@ -1674,7 +1656,7 @@
 
             <div id="scopeSelection" style="display:none">
                 <h3 id="scopeModalTitle">Authorize data access</h3>
-                <p class="scope-lead">Select the data you want to share with BMO from <strong id="scopeBankName"></strong>. You can change this later.</p>
+                <p class="scope-lead">Select the data you want to share with <strong id="scopePrimaryName">your bank</strong> from <strong id="scopeBankName"></strong>. You can change this later.</p>
                 <div class="scope-checklist" id="scopeChecklist"></div>
                 <div class="modal-buttons">
                     <button type="button" class="modal-btn modal-btn-secondary" id="scopeBackBtn">Back</button>
@@ -1694,11 +1676,11 @@
         <div class="modal modal--cash-drill">
             <button type="button" class="modal-close-btn" id="cashBreakdownCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
             <h3 id="cashBreakdownTitle">Cash breakdown</h3>
-            <p class="cash-drill-lead">BMO balances from the demo Accounts API; linked institution balances load when you refresh Cash and your connection allows account access.</p>
+            <p class="cash-drill-lead" id="cashDrillLead">Primary bank balances from the demo Accounts API; linked institution balances load when you refresh Cash and your connection allows account access.</p>
             <div class="cash-drill-scroll">
                 <section class="cash-drill-bank" aria-labelledby="cashBmoHeading">
                     <div class="cash-drill-bank__head">
-                        <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> BMO <span class="cash-drill-badge">Primary</span></span>
+                        <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> <span id="cashPrimaryBankName">BMO</span> <span class="cash-drill-badge">Primary</span></span>
                     </div>
                     <div class="cash-drill-box" id="cashDrillBmoBox"></div>
                 </section>
@@ -1750,22 +1732,22 @@
                 <div class="advisor-avatar" aria-hidden="true">SR</div>
                 <div class="advisor-banner-text">
                     <div class="advisor-banner-name">Sarah Robertson</div>
-                    <div class="advisor-banner-role">Senior Financial Advisor &bull; BMO Wealth</div>
+                    <div class="advisor-banner-role" id="advisorAffiliationLine">Senior Financial Advisor &bull; <span id="advisorPrimaryAffiliation">BMO Wealth</span></div>
                 </div>
             </div>
 
-            <div class="advisor-msg">
+            <div class="advisor-msg" id="advisorMsgBlock">
                 Hi John,<br><br>
-                To provide you with <strong>better investment recommendations</strong> and a more complete picture of your financial health, I'd like to view your accounts and recent transactions at <strong>TD Canada Trust</strong>.<br><br>
+                To provide you with <strong>better investment recommendations</strong> and a more complete picture of your financial health, I'd like to view your accounts and recent transactions at <strong id="advisorBankNameInMsg">your linked institution</strong>.<br><br>
                 This will allow me to analyze your full cash flow, identify optimization opportunities, and tailor my strategy to your complete financial profile. Please authorize the access below.
             </div>
 
             <div class="advisor-bank-row">
-                <div class="advisor-bank-logo">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg" alt="TD" width="44" height="44" />
+                <div class="advisor-bank-logo" id="advisorBankLogoWrap">
+                    <img id="advisorBankLogoImg" src="" alt="" width="44" height="44" style="display:none" />
                 </div>
                 <div class="advisor-bank-info">
-                    <div class="advisor-bank-name">TD Canada Trust</div>
+                    <div class="advisor-bank-name" id="advisorBankTitle">External institution</div>
                     <div class="advisor-bank-sub">Requested by your advisor</div>
                 </div>
             </div>

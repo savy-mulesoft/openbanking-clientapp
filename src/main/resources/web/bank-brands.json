@@ -1,0 +1,44 @@
+{
+  "pageTitle": "BMO Open Banking",
+  "primary": {
+    "displayName": "BMO",
+    "shortName": "BMO",
+    "legalName": "Bank of Montreal",
+    "appTitle": "Open Banking",
+    "appSubtitle": "Proof of concept",
+    "logoUrl": "/web/images/logo_bmo.png",
+    "logoAlt": "BMO",
+    "advisorAffiliation": "BMO Wealth"
+  },
+  "advisorExternalBankId": "summit_first",
+  "externalBanks": [
+    {
+      "id": "summit_first",
+      "displayName": "Summit First Bank",
+      "tagline": "Everyday personal & business banking",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='a' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#1b4332'/><stop offset='1' stop-color='#40916c'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(#a)'/><path d='M18 42 L32 22 L46 42 Z' fill='#d8f3dc' opacity='0.95'/><text x='32' y='52' text-anchor='middle' fill='#1b4332' font-family='system-ui,sans-serif' font-size='9' font-weight='700'>SF</text></svg>"
+    },
+    {
+      "id": "acme_trust",
+      "displayName": "Acme Community Trust",
+      "tagline": "Member-owned banking for your neighbourhood",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1d3557'/><circle cx='32' cy='28' r='12' fill='#a8dadc' opacity='0.9'/><text x='32' y='50' text-anchor='middle' fill='#f1faee' font-family='system-ui,sans-serif' font-size='14' font-weight='700'>AC</text></svg>"
+    },
+    {
+      "id": "wealth_financial",
+      "displayName": "W. Wealth Financial",
+      "tagline": "Private wealth & investing",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#2c1810'/><rect x='12' y='38' width='40' height='8' rx='2' fill='#c9a227'/><text x='32' y='30' text-anchor='middle' fill='#f5f0e6' font-family='Georgia,serif' font-size='18' font-weight='700'>W</text></svg>"
+    },
+    {
+      "id": "harborline_cu",
+      "displayName": "Harborline Credit Union",
+      "tagline": "Coastal community banking",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1e6091'/><path d='M8 40 Q32 24 56 40 L56 48 L8 48 Z' fill='#48cae4' opacity='0.85'/><text x='32' y='36' text-anchor='middle' fill='#fff' font-family='system-ui,sans-serif' font-size='11' font-weight='700'>HL</text></svg>"
+    }
+  ]
+}

@@ -33,6 +33,97 @@ readUrl("classpath://web/bmo-ui.js", "text/plain")
 		<set-payload doc:name="JS content type" value="#[payload]" mimeType="application/javascript"/>
 	</flow>
 
+	<!-- Bank names, logos, and OAuth display strings (edit web/bank-brands.json) -->
+	<flow name="serve-bank-brands-json-flow" doc:name="serve-bank-brands-json-flow">
+		<http:listener doc:name="bank-brands.json" config-ref="HTTP_Listener_config" path="/web/bank-brands.json" allowedMethods="GET"/>
+		<ee:transform doc:name="Read bank brands JSON">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+readUrl("classpath://web/bank-brands.json", "text/plain")
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload doc:name="application/json" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<!-- Primary bank logo and other static images under classpath web/images -->
+	<flow name="serve-web-image-flow" doc:name="serve-web-image-flow">
+		<http:listener doc:name="web images" config-ref="HTTP_Listener_config" path="/web/images/{name}" allowedMethods="GET">
+			<http:response statusCode="#[vars.httpStatus default 200]" />
+		</http:listener>
+		<choice doc:name="Validate filename">
+			<when expression="#[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var n = attributes.uriParams.name default &quot;&quot;
+---
+(n matches /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/)
+and (endsWith(lower(n), &quot;.png&quot;) or endsWith(lower(n), &quot;.jpg&quot;) or endsWith(lower(n), &quot;.jpeg&quot;) or endsWith(lower(n), &quot;.svg&quot;) or endsWith(lower(n), &quot;.gif&quot;) or endsWith(lower(n), &quot;.webp&quot;))
+and startsWith(lower(n), &quot;logo_&quot;)]">
+				<try doc:name="Read classpath image">
+					<ee:transform doc:name="Load bytes">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/octet-stream
+var n = attributes.uriParams.name
+---
+readUrl("classpath://web/images/" ++ n, "application/octet-stream")
+]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<ee:transform doc:name="MIME type">
+						<ee:variables>
+							<ee:set-variable variableName="imageMime"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var n = lower(attributes.uriParams.name default "")
+---
+if (endsWith(n, ".svg")) "image/svg+xml"
+else if (endsWith(n, ".png")) "image/png"
+else if (endsWith(n, ".gif")) "image/gif"
+else if (endsWith(n, ".webp")) "image/webp"
+else "image/jpeg"
+]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<set-payload doc:name="Typed image" value="#[payload]" mimeType="#[vars.imageMime]"/>
+					<error-handler>
+						<on-error-continue enableNotifications="true" logException="true" doc:name="Missing image" type="ANY">
+							<ee:transform doc:name="404 body">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+---
+"Not found"
+]]></ee:set-payload>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Bad path 404">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+---
+"Not found"
+]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+
 	<!-- FDX Core API routing moved to fdx-core-router.xml (APIKit Router) -->
 
 	<!-- BMO Client API Flow - Handles API requests from the UI -->

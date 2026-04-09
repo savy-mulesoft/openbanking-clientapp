@@ -69,7 +69,7 @@ output application/json
             </when>
             <otherwise>
                 <logger level="INFO" doc:name="Proxying to TD /fdx/v6/accounts"
-                        message='#["Proxying GET /api/td/accounts → /fdx/v6/accounts with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                        message='#[output application/java --- "Proxying GET /api/td/accounts → /fdx/v6/accounts with token length: " ++ sizeOf(vars.tdAccessToken)]'
                         category="TD.Proxy" />
 
                 <try doc:name="Forward to TD" doc:id="forward-td-accounts">
@@ -147,7 +147,7 @@ output application/json
             </when>
             <otherwise>
                 <logger level="INFO" doc:name="Proxying to TD /fdx/v6/accounts/*/transactions"
-                        message='#["Proxying GET → /fdx/v6/accounts/" ++ vars.accountId ++ "/transactions with token length: " ++ sizeOf(vars.tdAccessToken)]'
+                        message='#[output application/java --- "Proxying GET → /fdx/v6/accounts/" ++ vars.accountId ++ "/transactions with token length: " ++ sizeOf(vars.tdAccessToken)]'
                         category="TD.Proxy" />
 
                 <try doc:name="Forward to TD" doc:id="forward-td-txn">

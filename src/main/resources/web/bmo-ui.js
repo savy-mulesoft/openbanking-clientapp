@@ -34,27 +34,247 @@
         var bd = d.bankDisplayName != null ? String(d.bankDisplayName).trim() : '';
         if (!bd && d.bank_display_name != null) bd = String(d.bank_display_name).trim();
         var br = d.bankBrand != null ? d.bankBrand : d.bank_brand;
-        return { bankName: bn, bankDisplayName: bd || null, bankBrand: br != null ? br : null };
+        var ex = d.externalBankId != null ? String(d.externalBankId).trim() : '';
+        if (!ex && d.external_bank_id != null) {
+            ex = String(d.external_bank_id).trim();
+        }
+        return {
+            bankName: bn,
+            bankDisplayName: bd || null,
+            bankBrand: br != null ? br : null,
+            externalBankId: ex || null
+        };
     }
 
-    function bankFromQueryParams(params) {
-        var raw = params.get('bank');
-        if (raw == null || raw === '') return '';
+    /** Loaded from /web/bank-brands.json (primary bank + fictional external institutions). */
+    var BRANDS = null;
+    var _brandsReady = null;
+    var _uiBrandingApplied = false;
+
+    var DEFAULT_BRANDS = {
+        pageTitle: 'Open Banking',
+        primary: {
+            displayName: 'BMO',
+            shortName: 'BMO',
+            legalName: 'Bank of Montreal',
+            appTitle: 'Open Banking',
+            appSubtitle: 'Proof of concept',
+            logoUrl: '/web/images/logo_bmo.png',
+            logoAlt: 'BMO',
+            advisorAffiliation: 'BMO Wealth'
+        },
+        advisorExternalBankId: 'summit_first',
+        externalBanks: [
+            {
+                id: 'summit_first',
+                displayName: 'Summit First Bank',
+                tagline: 'Everyday personal & business banking',
+                oauthBankCode: 'TD',
+                logoSvg:
+                    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#2d6a4f'/><text x='32' y='42' text-anchor='middle' fill='#fff' font-family='system-ui,sans-serif' font-size='14' font-weight='700'>SF</text></svg>"
+            }
+        ]
+    };
+
+    function ensureBrands() {
+        if (_brandsReady) {
+            return _brandsReady;
+        }
+        _brandsReady = fetch('/web/bank-brands.json')
+            .then(function (res) {
+                if (!res.ok) {
+                    throw new Error('brands');
+                }
+                return res.json();
+            })
+            .then(function (j) {
+                BRANDS = j;
+            })
+            .catch(function () {
+                BRANDS = DEFAULT_BRANDS;
+            });
+        return _brandsReady;
+    }
+
+    function getExternalBank(id) {
+        if (!BRANDS || !BRANDS.externalBanks || !id) {
+            return null;
+        }
+        var sid = String(id).trim();
+        for (var i = 0; i < BRANDS.externalBanks.length; i++) {
+            if (BRANDS.externalBanks[i].id === sid) {
+                return BRANDS.externalBanks[i];
+            }
+        }
+        return null;
+    }
+
+    function svgToDataUri(svg) {
+        if (!svg) {
+            return '';
+        }
         try {
-            return decodeURIComponent(String(raw).replace(/\+/g, ' ')).trim();
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
         } catch (e) {
-            return String(raw).trim();
+            return '';
         }
     }
 
-    /** Hosted bank marks (user-supplied URLs). */
-    var BANK_LOGO_URLS = {
-        bmo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzORj-pntKNyeDmHO2_fHysJz1lzwZOL2F4g&s',
-        rbc: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxnYZQANBWQdJQ9IWBEppHxJFAUpC1W00yyQ&s',
-        td: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Toronto-Dominion_Bank_logo.svg',
-        scotia: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSc3vraaVxRZK-kXdRhvSrdiGxvvkfZxw296A&s',
-        cibc: 'https://reseaucapital.com/wp-content/uploads/2017/10/unnamed.png'
-    };
+    function initBrandingOnce() {
+        if (_uiBrandingApplied || !BRANDS) {
+            return;
+        }
+        _uiBrandingApplied = true;
+        applyPrimaryBranding();
+        renderConnectBankList();
+        populateAdvisorModalStatic();
+    }
+
+    function applyPrimaryBranding() {
+        if (!BRANDS || !BRANDS.primary) {
+            return;
+        }
+        var p = BRANDS.primary;
+        document.title = BRANDS.pageTitle || p.displayName + ' Open Banking';
+        var wrap = document.getElementById('primaryLogoWrap');
+        var img = document.getElementById('primaryLogoImg');
+        if (wrap) {
+            wrap.setAttribute('aria-label', p.logoAlt || p.displayName || 'Bank');
+        }
+        if (img) {
+            if (p.logoUrl) {
+                img.src = p.logoUrl;
+                img.alt = p.logoAlt || p.displayName || '';
+                img.style.display = 'block';
+                img.onerror = function () {
+                    img.style.display = 'none';
+                    if (wrap && !wrap.querySelector('.primary-logo-fallback')) {
+                        var sp = document.createElement('span');
+                        sp.className = 'primary-logo-fallback';
+                        sp.style.cssText = 'font-size:14px;font-weight:800;color:#fff';
+                        sp.textContent = p.shortName || p.displayName || 'B';
+                        wrap.appendChild(sp);
+                    }
+                };
+            } else {
+                img.style.display = 'none';
+            }
+        }
+        var t = document.getElementById('primaryAppTitle');
+        if (t) {
+            t.textContent = p.appTitle || 'Open Banking';
+        }
+        var st = document.getElementById('primaryAppSubtitle');
+        if (st) {
+            st.textContent = p.appSubtitle || '';
+        }
+        var txnTab = document.getElementById('txnTabBmo');
+        if (txnTab) {
+            txnTab.textContent = p.shortName || p.displayName || 'Primary';
+        }
+        var cashName = document.getElementById('cashPrimaryBankName');
+        if (cashName) {
+            cashName.textContent = p.displayName || 'Primary';
+        }
+        var aff = document.getElementById('advisorPrimaryAffiliation');
+        if (aff) {
+            aff.textContent = p.advisorAffiliation || p.displayName + ' Wealth';
+        }
+        var scopePri = document.getElementById('scopePrimaryName');
+        if (scopePri) {
+            scopePri.textContent = p.displayName || 'your bank';
+        }
+        var ov = document.getElementById('overviewInfoTip');
+        if (ov) {
+            ov.textContent =
+                'Link external accounts to see balances and transactions alongside your ' +
+                (p.displayName || 'primary bank') +
+                ' relationship, all in one place.';
+        }
+        var cashTip = document.getElementById('cashInfoTip');
+        if (cashTip) {
+            cashTip.textContent =
+                '360 Account information. Total amount across ' +
+                (p.displayName || 'your bank') +
+                ' and other connected bank accounts.';
+        }
+        var cashLead = document.getElementById('cashDrillLead');
+        if (cashLead) {
+            cashLead.textContent =
+                (p.displayName || 'Primary bank') +
+                ' balances from the demo Accounts API; linked institution balances load when you refresh Cash and your connection allows account access.';
+        }
+    }
+
+    function renderConnectBankList() {
+        var root = document.getElementById('connectBankList');
+        if (!root || !BRANDS || !BRANDS.externalBanks) {
+            return;
+        }
+        root.innerHTML = '';
+        BRANDS.externalBanks.forEach(function (b) {
+            var opt = document.createElement('div');
+            opt.className = 'bank-option';
+            opt.setAttribute('role', 'button');
+            opt.setAttribute('tabindex', '0');
+            opt.addEventListener('click', function () {
+                selectBank(b.id);
+            });
+            opt.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectBank(b.id);
+                }
+            });
+            var icon = document.createElement('div');
+            icon.className = 'bank-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            if (b.logoSvg) {
+                var im = document.createElement('img');
+                im.src = svgToDataUri(b.logoSvg);
+                im.alt = '';
+                im.width = 40;
+                im.height = 40;
+                icon.appendChild(im);
+            }
+            var col = document.createElement('div');
+            var nm = document.createElement('div');
+            nm.className = 'bank-name';
+            nm.textContent = b.displayName;
+            var sub = document.createElement('div');
+            sub.className = 'bank-sub';
+            sub.textContent = b.tagline || '';
+            col.appendChild(nm);
+            col.appendChild(sub);
+            opt.appendChild(icon);
+            opt.appendChild(col);
+            root.appendChild(opt);
+        });
+    }
+
+    function populateAdvisorModalStatic() {
+        if (!BRANDS) {
+            return;
+        }
+        var b = getExternalBank(BRANDS.advisorExternalBankId);
+        if (!b) {
+            return;
+        }
+        var nm = document.getElementById('advisorBankNameInMsg');
+        if (nm) {
+            nm.textContent = b.displayName;
+        }
+        var title = document.getElementById('advisorBankTitle');
+        if (title) {
+            title.textContent = b.displayName;
+        }
+        var aimg = document.getElementById('advisorBankLogoImg');
+        if (aimg && b.logoSvg) {
+            aimg.src = svgToDataUri(b.logoSvg);
+            aimg.alt = b.displayName;
+            aimg.style.display = 'block';
+        }
+    }
 
     function coerceArray(v) {
         if (v == null) return [];
@@ -105,9 +325,6 @@
         for (var i = 0; i < audiences.length; i++) {
             var a = String(audiences[i] || '').toLowerCase();
             if (a.indexOf('tdbank') !== -1 || a.indexOf(':td') !== -1) return 'TD';
-            if (a.indexOf('rbc') !== -1 || a.indexOf('royal') !== -1) return 'RBC';
-            if (a.indexOf('scotia') !== -1) return 'Scotiabank';
-            if (a.indexOf('cibc') !== -1) return 'CIBC';
             if (a.indexOf('bmo') !== -1) return 'BMO';
         }
         return '';
@@ -215,6 +432,12 @@
                     (!isGeneric(sb.bankDisplayName) ? sb.bankDisplayName : null) ||
                     (cur && !isGeneric(cur.bankDisplayName) ? cur.bankDisplayName : null) ||
                     null;
+                var resolvedExtId =
+                    (sb.externalBankId != null && String(sb.externalBankId).trim() !== ''
+                        ? sb.externalBankId
+                        : null) ||
+                    (cur && cur.externalBankId) ||
+                    null;
                 saveConnection({
                     accessToken: data.access_token,
                     idToken: data.id_token || null,
@@ -222,6 +445,7 @@
                     bankName: resolvedName,
                     bankDisplayName: resolvedDisplay,
                     bankBrand: sb.bankBrand != null ? sb.bankBrand : data.bankBrand,
+                    externalBankId: resolvedExtId,
                     scopes: tech,
                     scopesTechnical: tech,
                     scopesHuman: human,
@@ -239,9 +463,6 @@
 
     function linkedBankShortLabel(conn) {
         if (!conn) return 'Linked';
-        var brand = effectiveBankBrand(conn);
-        var displayMap = { td: 'TD Canada Trust', rbc: 'Royal Bank of Canada', scotia: 'Scotiabank', cibc: 'CIBC', bmo: 'BMO' };
-        if (displayMap[brand]) return displayMap[brand];
         var dn = conn.bankDisplayName;
         if (dn && dn !== 'External bank') return dn;
         return conn.bankName || 'Linked bank';
@@ -323,6 +544,7 @@
             bankName: name,
             bankDisplayName: display,
             bankBrand: brand,
+            externalBankId: obj.externalBankId != null && String(obj.externalBankId).trim() !== '' ? String(obj.externalBankId).trim() : null,
             scopes: scopesTech.length ? scopesTech : obj.scopes || [],
             scopesHuman: scopesHuman,
             scopesTechnical: scopesTech,
@@ -357,7 +579,8 @@
                 return {
                     bankName: x.bankName,
                     bankBrand: x.bankBrand,
-                    bankDisplayName: x.bankDisplayName
+                    bankDisplayName: x.bankDisplayName,
+                    externalBankId: x.externalBankId
                 };
             };
             if (JSON.stringify(pick(cur)) !== JSON.stringify(pick(next))) {
@@ -381,15 +604,9 @@
     }
 
     function bankDisplayName(bankName, key) {
-        var map = {
-            bmo: 'BMO',
-            rbc: 'Royal Bank of Canada',
-            td: 'TD Canada Trust',
-            scotia: 'Scotiabank',
-            cibc: 'CIBC',
-            default: null
-        };
-        if (map[key]) return map[key];
+        if (BRANDS && BRANDS.primary && key === 'bmo') {
+            return BRANDS.primary.displayName || 'BMO';
+        }
         return bankName || 'External bank';
     }
 
@@ -413,42 +630,58 @@
             case 'bmo':
                 return rect('#007078', 'BMO');
             case 'td':
-                return rect('#53B700', 'TD');
+                return rect('#334155', 'OB');
             case 'rbc':
-                return rect('#0051A5', 'RBC');
+                return rect('#334155', 'OB');
             case 'scotia':
-                return rect('#EC111A', 'SCO');
+                return rect('#334155', 'OB');
             case 'cibc':
-                return rect('#B82025', 'CIB');
+                return rect('#334155', 'OB');
             default:
                 return rect('#007078', 'OB');
         }
     }
 
-    function bankLogoFillContainer(container, brand, altText) {
+    function bankLogoFillContainer(container, brand, altText, opts) {
+        opts = opts || {};
         if (!container) return;
         container.innerHTML = '';
+        var extId = opts.externalBankId;
+        if (extId) {
+            var eb = getExternalBank(extId);
+            if (eb && eb.logoSvg) {
+                var imgEx = document.createElement('img');
+                imgEx.src = svgToDataUri(eb.logoSvg);
+                imgEx.alt = altText || eb.displayName || '';
+                imgEx.loading = 'lazy';
+                imgEx.style.width = '100%';
+                imgEx.style.height = '100%';
+                imgEx.style.objectFit = 'contain';
+                imgEx.style.display = 'block';
+                container.appendChild(imgEx);
+                return;
+            }
+        }
         var k = String(brand == null ? 'default' : brand)
             .trim()
             .toLowerCase();
-        var url = BANK_LOGO_URLS[k];
-        if (!url) {
-            container.innerHTML = bankLogoSvgHtml(k);
+        if (k === 'bmo' && BRANDS && BRANDS.primary && BRANDS.primary.logoUrl) {
+            var imgB = document.createElement('img');
+            imgB.src = BRANDS.primary.logoUrl;
+            imgB.alt = altText || BRANDS.primary.logoAlt || '';
+            imgB.loading = 'lazy';
+            imgB.style.width = '100%';
+            imgB.style.height = '100%';
+            imgB.style.objectFit = 'contain';
+            imgB.style.display = 'block';
+            imgB.addEventListener('error', function onBmoLogoErr() {
+                imgB.removeEventListener('error', onBmoLogoErr);
+                container.innerHTML = bankLogoSvgHtml('bmo');
+            });
+            container.appendChild(imgB);
             return;
         }
-        var img = document.createElement('img');
-        img.src = url;
-        img.alt = altText || '';
-        img.loading = 'lazy';
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'contain';
-        img.style.display = 'block';
-        img.addEventListener('error', function onLogoErr() {
-            img.removeEventListener('error', onLogoErr);
-            container.innerHTML = bankLogoSvgHtml(k);
-        });
-        container.appendChild(img);
+        container.innerHTML = bankLogoSvgHtml(k);
     }
 
     function renderExternalConnections() {
@@ -579,7 +812,9 @@
         var logo = document.createElement('div');
         logo.className = 'external-detail-logo row-logo';
         logo.setAttribute('title', conn.bankDisplayName || conn.bankName || '');
-        bankLogoFillContainer(logo, brand, conn.bankDisplayName || conn.bankName || '');
+        bankLogoFillContainer(logo, brand, conn.bankDisplayName || conn.bankName || '', {
+            externalBankId: conn.externalBankId
+        });
 
         var scopeWrap = document.createElement('div');
         scopeWrap.className = 'external-detail-scopes row-scopes';
@@ -638,7 +873,6 @@
         }
         if (status !== 'success') return Promise.resolve();
 
-        var bankFromUrl = bankFromQueryParams(params);
         var scopesFromUrl = (params.get('scopes') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
         var pendingPick = peekPendingBankChoice();
 
@@ -667,7 +901,7 @@
                 }
                 if (!tech.length) tech = scopesFromUrl;
                 var human = coerceArray(o.data.scopes_human);
-                var resolvedName = bankFromUrl || sb.bankName || pendingPick || 'External bank';
+                var resolvedName = sb.bankName || pendingPick || bankNameFromJwtAud(o.data.access_token) || 'External bank';
                 saveConnection({
                     accessToken: o.data.access_token,
                     idToken: o.data.id_token || null,
@@ -675,6 +909,7 @@
                     bankName: resolvedName,
                     bankDisplayName: sb.bankDisplayName || null,
                     bankBrand: sb.bankBrand != null ? sb.bankBrand : o.data.bankBrand,
+                    externalBankId: sb.externalBankId || null,
                     scopes: tech,
                     scopesTechnical: tech,
                     scopesHuman: human,
@@ -712,7 +947,7 @@
                         })
                         .filter(Boolean);
                 }
-                var resolvedName = sb.bankName || peekPendingBankChoice() || 'External bank';
+                var resolvedName = sb.bankName || peekPendingBankChoice() || bankNameFromJwtAud(data.access_token) || 'External bank';
                 saveConnection({
                     accessToken: data.access_token,
                     idToken: data.id_token || null,
@@ -720,6 +955,7 @@
                     bankName: resolvedName,
                     bankDisplayName: sb.bankDisplayName || null,
                     bankBrand: sb.bankBrand != null ? sb.bankBrand : data.bankBrand,
+                    externalBankId: sb.externalBankId || null,
                     scopes: tech,
                     scopesTechnical: tech,
                     scopesHuman: coerceArray(data.scopes_human),
@@ -762,7 +998,9 @@
         if (bmoBox) {
             bmoBox.innerHTML = '';
             if (!_bmoAccountsData.length) {
-                bmoBox.appendChild(renderCashDrillRow('No BMO accounts loaded', '—'));
+                var priName =
+                    BRANDS && BRANDS.primary && BRANDS.primary.displayName ? BRANDS.primary.displayName : 'Primary';
+                bmoBox.appendChild(renderCashDrillRow('No ' + priName + ' accounts loaded', '—'));
             } else {
                 _bmoAccountsData.forEach(function (acc) {
                     var label = acc.nickname || ((acc.accountCategory || 'Account') + ' (' + (acc.accountId || '—') + ')');
@@ -1039,11 +1277,11 @@
 
     function extTabBankLabel(conn) {
         if (!conn) return 'Linked';
-        var brand = effectiveBankBrand(conn);
-        if (brand === 'default' && conn.bankName) brand = bankBrandKey(conn.bankName);
-        var shortMap = { td: 'TD', rbc: 'RBC', scotia: 'Scotiabank', cibc: 'CIBC', bmo: 'BMO' };
-        if (shortMap[brand]) return shortMap[brand];
-        return conn.bankDisplayName || conn.bankName || 'Linked';
+        var s = conn.bankDisplayName || conn.bankName || 'Linked';
+        if (s.length > 22) {
+            return s.slice(0, 20) + '\u2026';
+        }
+        return s;
     }
 
     function showExtTab(conn) {
@@ -1066,8 +1304,8 @@
     }
 
     /**
-     * Refresh: load BMO txns, then check if external connection exists.
-     * If connection exists → show the tab with bank name. Actual TD API call
+     * Refresh: load primary-bank txns, then check if external connection exists.
+     * If connection exists → show the tab with bank name. Linked institution API calls
      * happens when the user clicks that tab (lazy-load).
      */
     function refreshAllTransactions() {
@@ -1161,10 +1399,19 @@
         syncModalOpenBodyClass();
     };
 
-    var _selectedBank = '';
+    var _selectedOAuthCode = '';
+    var _selectedDisplayName = '';
+    var _selectedExternalId = '';
 
-    window.selectBank = function (bankName) {
-        _selectedBank = bankName;
+    window.selectBank = function (externalBankId) {
+        var b = getExternalBank(externalBankId);
+        if (!b) {
+            showNotification('Unknown institution.', 'warn');
+            return;
+        }
+        _selectedOAuthCode = b.oauthBankCode;
+        _selectedDisplayName = b.displayName;
+        _selectedExternalId = b.id;
 
         var bs = document.getElementById('bankSelection');
         var ss = document.getElementById('scopeSelection');
@@ -1174,7 +1421,7 @@
         if (ss) ss.style.display = 'block';
 
         var bankLabel = document.getElementById('scopeBankName');
-        if (bankLabel) bankLabel.textContent = bankName;
+        if (bankLabel) bankLabel.textContent = b.displayName;
 
         var checklist = document.getElementById('scopeChecklist');
         if (checklist) {
@@ -1231,25 +1478,31 @@
         var statusMessage = document.getElementById('statusMessage');
 
         if (statusIcon) {
-            statusIcon.innerHTML = '\u23f3';
+            statusIcon.innerHTML = '<span class="css-spinner"></span>';
             statusIcon.className = 'status-icon status-loading';
         }
         if (statusTitle) statusTitle.textContent = 'Connecting\u2026';
-        if (statusMessage) statusMessage.textContent = 'Securely authenticating with ' + _selectedBank + '\u2026';
+        if (statusMessage) statusMessage.textContent = 'Securely authenticating with ' + _selectedDisplayName + '\u2026';
 
         setTimeout(function () {
             if (statusIcon) {
-                statusIcon.innerHTML = '\ud83d\udd10';
+                statusIcon.innerHTML = '<span class="css-lock"></span>';
                 statusIcon.className = 'status-icon status-loading';
             }
             if (statusTitle) statusTitle.textContent = 'Authenticating';
-            if (statusMessage) statusMessage.textContent = 'Redirecting to ' + _selectedBank + ' OAuth flow\u2026';
+            if (statusMessage) statusMessage.textContent = 'Redirecting to ' + _selectedDisplayName + ' OAuth flow\u2026';
 
-            setPendingBankChoice(_selectedBank);
+            setPendingBankChoice(_selectedOAuthCode);
 
             var oauthUrl =
-                '/api/auth/connect?bank=' + encodeURIComponent(_selectedBank) +
-                '&access_types=' + encodeURIComponent(selected.join(','));
+                '/api/auth/connect?bank=' +
+                encodeURIComponent(_selectedOAuthCode) +
+                '&bank_display=' +
+                encodeURIComponent(_selectedDisplayName) +
+                '&external_bank_id=' +
+                encodeURIComponent(_selectedExternalId) +
+                '&access_types=' +
+                encodeURIComponent(selected.join(','));
 
             setTimeout(function () {
                 window.location.href = oauthUrl;
@@ -1372,6 +1625,8 @@
         closeCashBreakdownModal();
         closeAdminHub();
 
+        populateAdvisorModalStatic();
+
         var scopeList = document.getElementById('advisorScopeList');
         if (scopeList) {
             scopeList.innerHTML = '';
@@ -1428,12 +1683,25 @@
 
     function advisorAuthorize() {
         closeAdvisorModal();
-        _selectedBank = 'TD';
-        setPendingBankChoice('TD');
+        var b = getExternalBank(BRANDS && BRANDS.advisorExternalBankId);
+        if (!b) {
+            showNotification('Advisor flow is not configured.', 'warn');
+            return;
+        }
+        _selectedOAuthCode = b.oauthBankCode;
+        _selectedDisplayName = b.displayName;
+        _selectedExternalId = b.id;
+        setPendingBankChoice(_selectedOAuthCode);
         var scopes = ['ACCOUNT_BASIC', 'TRANSACTIONS'];
         var oauthUrl =
-            '/api/auth/connect?bank=' + encodeURIComponent('TD') +
-            '&access_types=' + encodeURIComponent(scopes.join(','));
+            '/api/auth/connect?bank=' +
+            encodeURIComponent(_selectedOAuthCode) +
+            '&bank_display=' +
+            encodeURIComponent(_selectedDisplayName) +
+            '&external_bank_id=' +
+            encodeURIComponent(_selectedExternalId) +
+            '&access_types=' +
+            encodeURIComponent(scopes.join(','));
         window.location.href = oauthUrl;
     }
 
@@ -1774,14 +2042,36 @@
 
     }
 
+    function startWire() {
+        ensureBrands()
+            .then(function () {
+                initBrandingOnce();
+                wireDom();
+            })
+            .catch(function () {
+                BRANDS = DEFAULT_BRANDS;
+                initBrandingOnce();
+                wireDom();
+            });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', wireDom);
+        document.addEventListener('DOMContentLoaded', startWire);
     } else {
-        wireDom();
+        startWire();
     }
 
     window.addEventListener('load', function () {
-        handleOAuthReturn()
+        ensureBrands()
+            .then(function () {
+                initBrandingOnce();
+                return handleOAuthReturn();
+            })
+            .catch(function () {
+                BRANDS = DEFAULT_BRANDS;
+                initBrandingOnce();
+                return handleOAuthReturn();
+            })
             .then(function () {
                 return tryHydrateConnectionFromServer();
             })

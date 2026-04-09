@@ -1,4 +1,6 @@
 # Local environment configuration for OAuth 2.0 flow
+# Override APP_BASE_URL on CloudHub to your public URL, e.g.:
+#   APP_BASE_URL=https://ob-bmo-fdx-app-fomag7.f5od7g.usa-e2.cloudhub.io
 oauth:
   auth0:
     domain: "dev-77sisti8b11ec8tp.us.auth0.com"
@@ -7,11 +9,11 @@ oauth:
     client_id: "ywXBlXbbDmE8K2VkuXKy36YjjHlo7iTv"
     client_secret: "${secure::oauth.auth0.client_secret}"
     audience: "urn:fdx:tdbank"
-    redirect_uri: "http://localhost:8081/callback"
+    redirect_uri: "${APP_BASE_URL}/callback"
 
 # Frontend redirect configuration (success URL is built in oauth-callback-flow from OAuth state)
 frontend:
-  base_url: "http://localhost:8081"
+  base_url: "${APP_BASE_URL}"
   success_redirect_path: "/"
   error_redirect_path: "/?status=error"
 
