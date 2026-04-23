@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<sub-flow name="post-agent-chat-legacy-subflow" doc:name="post-agent-chat-legacy-subflow">
+		<choice doc:name="Assistant configured">
+			<when expression='#[!isEmpty(p("agent.general.url")) and !isEmpty(p("agent.general.client_id")) and !isEmpty(p("agent.general.client_secret"))]'>
+				<ee:transform doc:name="Build chat completions body">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var req = vars.chatPayload default {}
+var userMsgs = req.messages default []
+var devPrompt = p("agent.general.developer_prompt")
+---
+if (sizeOf(userMsgs) > 0)
+  { messages: userMsgs }
+else
+  {
+    messages: [
+      { role: "developer", content: devPrompt },
+      { role: "user", content: req.message default "" }
+    ]
+  }]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<try doc:name="Call external LLM">
+					<http:request method="POST" doc:name="POST chat completions" config-ref="HTTP_Request_configuration" url="#[p('agent.general.url')]" responseTimeout="${agent.general.request_timeout_ms}">
+						<http:headers><![CDATA[#[output application/java
+---
+{
+  "Content-Type": "application/json",
+  "client_id": p("agent.general.client_id"),
+  "client_secret": p("agent.general.client_secret")
+}]]]></http:headers>
+					</http:request>
+					<ee:transform doc:name="Map assistant reply">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  reply: (payload.choices[0].message.content) default ""
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<error-handler>
+						<on-error-continue enableNotifications="true" logException="true" type="HTTP:TIMEOUT" doc:name="On LLM timeout">
+							<ee:transform doc:name="Timeout response">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var sec = ((p("agent.general.request_timeout_ms") as Number default 60000) / 1000) as String
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "The assistant did not respond within " ++ sec ++ " seconds. Please try again with a shorter question.",
+  error: true,
+  errorType: "TIMEOUT",
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech
+  }
+}
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+						</on-error-continue>
+						<on-error-continue enableNotifications="true" logException="true" type="ANY" doc:name="On LLM error">
+							<ee:transform doc:name="Friendly error JSON">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "There was an issue processing the response. Please try again in a moment.",
+  error: true,
+  errorType: (error.errorType.identifier default "") as String,
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech
+  }
+}
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Assistant missing config">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  reply: "Chat is not configured. Set agent.general.url, client_id, and client_secret in application properties.",
+  error: true,
+  errorType: "CONFIG",
+  debug: {
+    errorType: "CONFIG",
+    detail: "Missing agent.general.url, client_id, or client_secret in application properties."
+  }
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+
+	<sub-flow name="post-agent-chat-broker-subflow" doc:name="post-agent-chat-broker-subflow">
+		<flow-ref doc:name="Load broker registry" name="load-agent-brokers-registry-subflow"/>
+		<ee:transform doc:name="Find broker by id">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var list = payload as Array
+var aid = vars.chatAgentId default ""
+var found = list filter ($.id == aid)
+---
+if (sizeOf(found) > 0) found[0] else null
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Broker found">
+			<when expression="#[payload != null]">
+				<set-variable doc:name="resolvedBroker" variableName="resolvedBroker" value="#[payload]"/>
+				<choice doc:name="A2A JSON-RPC vs OpenAI-style">
+					<when expression="#[((vars.resolvedBroker.card.protocolVersion default '') as String) startsWith '0.3']">
+						<ee:transform doc:name="A2A message/send JSON-RPC + POST URL">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var req = vars.chatPayload default {}
+var msgs = req.messages default []
+var userMsgs = msgs filter (lower($.role default "") == "user")
+var text = if (sizeOf(userMsgs) > 0)
+  (userMsgs[-1].content default "")
+else if (sizeOf(msgs) > 0)
+  (msgs[-1].content default "")
+else
+  (req.message default "")
+var mid = java!java::util::UUID::randomUUID() as String
+var rid = java!java::util::UUID::randomUUID() as String
+---
+{
+  jsonrpc: "2.0",
+  id: rid as String,
+  method: "message/send",
+  params: {
+    message: {
+      kind: "message",
+      messageId: mid as String,
+      role: "user",
+      parts: [{ kind: "text", text: text }]
+    }
+  }
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="a2aBrokerPostUrl"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+fun ensureTrailingSlash(s) = do {
+  var z = trim(s default "")
+  ---
+  if (isEmpty(z)) z
+  else if (endsWith(z, "/")) z
+  else z ++ "/"
+}
+var br = vars.resolvedBroker
+var stored = trim(br.chatUrl default "")
+var cardU = trim((br.card default {}).url default "")
+var b = trim(br.baseUrl default "")
+---
+ensureTrailingSlash(
+  if (!isEmpty(stored)) stored
+  else if (!isEmpty(cardU) and (startsWith(lower(cardU), "http://") or startsWith(lower(cardU), "https://"))) cardU
+  else b
+)
+]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<try doc:name="POST A2A JSON-RPC">
+							<http:request method="POST" doc:name="A2A broker JSON-RPC" config-ref="HTTP_Request_configuration" url="#[vars.a2aBrokerPostUrl]" responseTimeout="${agent.chat.a2a_response_timeout_ms}">
+								<http:headers><![CDATA[#[output application/java
+---
+{
+  "Content-Type": "application/json",
+  "Accept": "application/json"
+}]]]></http:headers>
+							</http:request>
+							<ee:transform doc:name="Map A2A JSON-RPC reply">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import trim, isEmpty, substring from dw::core::Strings
+/** Collect text from each part: .text, .content, or .body (A2A varies by producer). */
+fun partText(p) =
+  if (p == null) ""
+  else if (p.text != null) trim(p.text as String default "")
+  else if (p.content != null) trim(p.content as String default "")
+  else if (p.body != null) trim(p.body as String default "")
+  else trim("" default "")
+fun textFromParts(ps) =
+  (((ps default []) map ((p) -> partText(p))) filter ((t) -> not isEmpty(trim(t as String default "")))) joinBy "\n"
+/** Normalize artifact.parts whether the broker sends an array or a single part object. */
+fun partsArray(p) =
+  if (p == null) []
+  else if (p is Array) p as Array
+  else [p]
+/** Artifact list → all part objects in order (flatMap avoids edge cases with flatten + map). */
+fun textFromArtifacts(arts) =
+  textFromParts((arts as Array default []) flatMap ((a) -> partsArray(a.parts)))
+/** A2A task often returns the prompt/question on result.message while status = input-required. */
+fun textFromResultMessage(m) = do {
+  var msg = m default {}
+  var direct = trim((msg.text as String) default "")
+  var inner = msg.parts
+  ---
+  if (not isEmpty(direct)) direct
+  else if (inner != null and sizeOf(inner as Array) > 0) textFromParts(inner)
+  else ""
+}
+fun lastHistoryText(hist) = if (sizeOf(hist default []) < 1) ""
+  else do {
+    var last = (hist as Array)[-1] default {}
+  ---
+    if (last.message != null) textFromResultMessage(last.message)
+    else if (last.parts != null) textFromParts(last.parts)
+    else trim((last.text as String) default "")
+  }
+/** Often input-required puts the form/question in an earlier history entry, not the last. */
+fun allHistoryText(hist) = if (sizeOf(hist default []) < 1) ""
+  else do {
+    var arr = (hist as Array) map ((h) -> do {
+    var h0 = h default {}
+  ---
+    if (h0.message != null) textFromResultMessage(h0.message)
+    else if (h0.parts != null) textFromParts(h0.parts)
+    else trim((h0.text as String) default "")
+  })
+  var filtered = arr filter ((row) -> not isEmpty(trim(row as String default "")))
+  ---
+  filtered joinBy "\n"
+  }
+/** Some brokers nest user-facing text under result.status. */
+fun textFromStatusObject(st0) = do {
+  var st1 = (st0 default {}) as Object
+  var smsg = (st1).message
+  var sparts = (st1).parts
+  var stext = trim((st1).text as String default "")
+  ---
+  if (smsg != null) textFromResultMessage(smsg)
+  else if (sparts != null and sizeOf(sparts as Array) > 0) textFromParts(sparts)
+  else if (not isEmpty(stext)) stext
+  else ""
+}
+var r = payload
+---
+if (r.error != null)
+  do {
+    var emsg = trim((r.error.message default "") as String)
+    var ecode = r.error.code default null
+    var rawErr = (write(r.error)) as String
+    var clipRaw = if (sizeOf(rawErr) > 1200) substring(rawErr, 0, 1200) ++ "…" else rawErr
+  ---
+    {
+      reply: "There was an issue processing the response. Please try again in a moment.",
+      error: true,
+      debug: {
+        errorType: "JSON-RPC",
+        code: ecode,
+        detail: if (isEmpty(emsg)) clipRaw else emsg
+      }
+    }
+  }
+else if (r.result != null)
+  do {
+    var res = r.result
+    var st = (res.status default {}).state as String default ""
+    var fromParts = if (sizeOf(res.parts default []) > 0) textFromParts(res.parts) else ""
+    var fromArtifacts = if (sizeOf(res.artifacts default []) > 0) textFromArtifacts(res.artifacts) else ""
+    var fromMessage = if (res.message != null) textFromResultMessage(res.message) else ""
+    var fromStat = if (res.status != null) textFromStatusObject(res.status) else ""
+    var fromHistoryAll = if (sizeOf(res.history default []) > 0) allHistoryText(res.history) else ""
+    var fromHistory = if (sizeOf(res.history default []) > 0) lastHistoryText(res.history) else ""
+    var fromTask = if (res.task == null) ""
+        else if (res.task is String) trim(res.task as String)
+        else textFromResultMessage(res.task)
+    var body = if (not isEmpty(trim(fromParts))) fromParts
+        else if (not isEmpty(trim(fromArtifacts))) fromArtifacts
+        else if (not isEmpty(trim(fromMessage))) fromMessage
+        else if (not isEmpty(trim(fromStat))) fromStat
+        else if (not isEmpty(trim(fromHistoryAll))) fromHistoryAll
+        else if (not isEmpty(trim(fromHistory))) fromHistory
+        else if (not isEmpty(trim(fromTask))) fromTask
+        else ""
+  ---
+  if (not isEmpty(trim(body)))
+    { reply: body }
+  else if (st == "input-required")
+    { reply: "The agent needs more information to continue. Send a follow-up with the details it asked for." }
+  else if (not isEmpty(trim(st)))
+    { reply: "The agent returned status \"" ++ st ++ "\". If the run is not done, try sending one more follow-up message." }
+  else
+    { reply: write(res, "application/json") }
+  }
+else
+  { reply: write(r, "application/json") }
+]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<error-handler>
+								<on-error-continue enableNotifications="true" logException="true" type="HTTP:TIMEOUT" doc:name="A2A timeout">
+									<ee:transform doc:name="A2A timeout body">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var sec = ((p("agent.chat.a2a_response_timeout_ms") as Number default 180000) / 1000) as String
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "The agent did not respond within " ++ sec ++ " seconds.",
+  error: true,
+  errorType: "TIMEOUT",
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech
+  }
+}
+}]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+								</on-error-continue>
+								<on-error-continue enableNotifications="true" logException="true" type="ANY" doc:name="A2A error">
+									<ee:transform doc:name="A2A err body">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "There was an issue processing the response. Please try again in a moment.",
+  error: true,
+  errorType: (error.errorType.identifier default "") as String,
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech,
+    hint: "Often caused by an unreachable broker URL, TLS issues, or HTTP errors from the A2A broker (message/send)."
+  }
+}
+}]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+								</on-error-continue>
+							</error-handler>
+						</try>
+					</when>
+					<otherwise>
+						<ee:transform doc:name="Build OpenAI-style broker body">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var req = vars.chatPayload default {}
+var userMsgs = req.messages default []
+var devPrompt = p("agent.general.developer_prompt")
+---
+if (sizeOf(userMsgs) > 0)
+  { messages: userMsgs }
+else
+  {
+    messages: [
+      { role: "developer", content: devPrompt },
+      { role: "user", content: req.message default "" }
+    ]
+  }]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<try doc:name="POST OpenAI-style broker">
+							<http:request method="POST" doc:name="Broker chat completions" config-ref="HTTP_Request_configuration" url="#[vars.resolvedBroker.chatUrl]" responseTimeout="${agent.general.request_timeout_ms}">
+								<http:headers><![CDATA[#[output application/java
+---
+{
+  "Content-Type": "application/json",
+  "client_id": p("agent.general.client_id"),
+  "client_secret": p("agent.general.client_secret")
+}]]]></http:headers>
+							</http:request>
+							<ee:transform doc:name="Map OpenAI broker reply">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  reply: (payload.choices[0].message.content) default ""
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<error-handler>
+								<on-error-continue enableNotifications="true" logException="true" type="HTTP:TIMEOUT" doc:name="Broker timeout">
+									<ee:transform doc:name="Timeout response">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var sec = ((p("agent.general.request_timeout_ms") as Number default 60000) / 1000) as String
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "The assistant did not respond within " ++ sec ++ " seconds. Please try again with a shorter question.",
+  error: true,
+  errorType: "TIMEOUT",
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech
+  }
+}
+}]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+								</on-error-continue>
+								<on-error-continue enableNotifications="true" logException="true" type="ANY" doc:name="Broker error">
+									<ee:transform doc:name="Broker friendly error">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import substring, trim from dw::core::Strings
+---
+do {
+  var tech = trim((error.detailedDescription default error.description default "") as String)
+  var shortTech = if (sizeOf(tech) > 1800) substring(tech, 0, 1800) ++ "…" else tech
+  var httpSt = (error.errorMessage.attributes.statusCode default null)
+---
+{
+  reply: "There was an issue processing the response. Please try again in a moment.",
+  error: true,
+  errorType: (error.errorType.identifier default "") as String,
+  debug: {
+    muleErrorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    statusCode: httpSt,
+    detail: shortTech
+  }
+}
+}]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+								</on-error-continue>
+							</error-handler>
+						</try>
+					</otherwise>
+				</choice>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Broker not found">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  reply: "No agent broker registered with this id. Add it under Agent settings or pick another agent.",
+  error: true,
+  errorType: "BROKER_NOT_FOUND",
+  debug: {
+    errorType: "BROKER_NOT_FOUND",
+    detail: "No matching broker id in the registry for this chat request."
+  }
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+
+	<flow name="post-agent-chat-flow" doc:name="post-agent-chat-flow">
+		<logger level="INFO" doc:name="Agent chat" message="Agent chat request"/>
+		<set-variable doc:name="Preserve chat payload" variableName="chatPayload" value="#[payload]"/>
+		<set-variable doc:name="chatAgentId" variableName="chatAgentId" value="#[payload.agentId default '']"/>
+		<choice doc:name="Broker vs legacy">
+			<when expression="#[!isEmpty(vars.chatAgentId)]">
+				<flow-ref doc:name="Chat via broker" name="post-agent-chat-broker-subflow"/>
+			</when>
+			<otherwise>
+				<flow-ref doc:name="Chat legacy LLM" name="post-agent-chat-legacy-subflow"/>
+			</otherwise>
+		</choice>
+		<set-payload doc:name="Set JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+</mule>

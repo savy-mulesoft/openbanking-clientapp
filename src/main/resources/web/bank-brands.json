@@ -1,34 +1,31 @@
 {
-  "pageTitle": "BMO Open Banking",
+  "pageTitle": "Synapse Bank Open Banking",
   "primary": {
-    "displayName": "BMO",
-    "shortName": "BMO",
-    "legalName": "Bank of Montreal",
+    "displayName": "Synapse Bank",
+    "shortName": "Synapse",
+    "legalName": "Synapse Bank Inc.",
     "appTitle": "Open Banking",
     "appSubtitle": "Proof of concept",
-    "logoUrl": "/web/images/logo_bmo.png",
-    "logoAlt": "BMO",
-    "advisorAffiliation": "BMO Wealth"
+    "logoUrl": "/web/images/logo_synapse_new.png",
+    "logoAlt": "Synapse Bank",
+    "advisorAffiliation": "Synapse Private Banking",
+    "cashbackPromotionUrl": "https://www.synapsebank.com/promotions/100-cashback",
+    "openBankingPrivacyPolicyUrl": "https://www.synapsebank.com/legal/open-banking-privacy"
   },
   "advisorExternalBankId": "summit_first",
   "externalBanks": [
     {
       "id": "summit_first",
       "displayName": "Summit First Bank",
+      "shortName": "Summit",
       "tagline": "Everyday personal & business banking",
       "oauthBankCode": "TD",
       "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='a' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#1b4332'/><stop offset='1' stop-color='#40916c'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(#a)'/><path d='M18 42 L32 22 L46 42 Z' fill='#d8f3dc' opacity='0.95'/><text x='32' y='52' text-anchor='middle' fill='#1b4332' font-family='system-ui,sans-serif' font-size='9' font-weight='700'>SF</text></svg>"
     },
     {
-      "id": "acme_trust",
-      "displayName": "Acme Community Trust",
-      "tagline": "Member-owned banking for your neighbourhood",
-      "oauthBankCode": "TD",
-      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1d3557'/><circle cx='32' cy='28' r='12' fill='#a8dadc' opacity='0.9'/><text x='32' y='50' text-anchor='middle' fill='#f1faee' font-family='system-ui,sans-serif' font-size='14' font-weight='700'>AC</text></svg>"
-    },
-    {
       "id": "wealth_financial",
       "displayName": "W. Wealth Financial",
+      "shortName": "Wealth",
       "tagline": "Private wealth & investing",
       "oauthBankCode": "TD",
       "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#2c1810'/><rect x='12' y='38' width='40' height='8' rx='2' fill='#c9a227'/><text x='32' y='30' text-anchor='middle' fill='#f5f0e6' font-family='Georgia,serif' font-size='18' font-weight='700'>W</text></svg>"
@@ -36,9 +33,50 @@
     {
       "id": "harborline_cu",
       "displayName": "Harborline Credit Union",
+      "shortName": "Harborline",
       "tagline": "Coastal community banking",
       "oauthBankCode": "TD",
       "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1e6091'/><path d='M8 40 Q32 24 56 40 L56 48 L8 48 Z' fill='#48cae4' opacity='0.85'/><text x='32' y='36' text-anchor='middle' fill='#fff' font-family='system-ui,sans-serif' font-size='11' font-weight='700'>HL</text></svg>"
+    },
+    {
+      "id": "northstar_direct",
+      "displayName": "NorthStar Direct Bank",
+      "shortName": "NorthStar",
+      "tagline": "Digital-first everyday banking",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#0f172a'/><path d='M32 12 L38 26 L52 28 L42 38 L44 52 L32 46 L20 52 L22 38 L12 28 L26 26 Z' fill='#38bdf8'/><text x='32' y='58' text-anchor='middle' fill='#94a3b8' font-family='system-ui,sans-serif' font-size='8' font-weight='700'>NS</text></svg>"
+    },
+    {
+      "id": "maple_one",
+      "displayName": "Maple One Financial",
+      "shortName": "Maple One",
+      "tagline": "Canadian roots, modern tools",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#14532d'/><path d='M32 18 C28 28 22 36 18 44 L46 44 C42 36 36 28 32 18 Z' fill='#86efac'/><text x='32' y='54' text-anchor='middle' fill='#dcfce7' font-family='system-ui,sans-serif' font-size='9' font-weight='700'>M1</text></svg>"
+    },
+    {
+      "id": "civic_trust",
+      "displayName": "Civic Trust Bank",
+      "shortName": "Civic",
+      "tagline": "Public sector and professional banking",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1e3a5f'/><rect x='14' y='22' width='36' height='22' rx='3' fill='#e2e8f0'/><rect x='18' y='26' width='8' height='14' fill='#1e3a5f'/><rect x='30' y='26' width='8' height='14' fill='#1e3a5f'/><rect x='42' y='26' width='8' height='14' fill='#1e3a5f'/></svg>"
+    },
+    {
+      "id": "brightway_cu",
+      "displayName": "Brightway Credit Union",
+      "shortName": "Brightway",
+      "tagline": "Member rewards and low-fee accounts",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#f59e0b'/><circle cx='32' cy='30' r='14' fill='#fff7ed'/><path d='M32 22 L36 30 L44 31 L38 37 L40 45 L32 41 L24 45 L26 37 L20 31 L28 30 Z' fill='#d97706'/></svg>"
+    },
+    {
+      "id": "acme_trust",
+      "displayName": "Acme Community Trust",
+      "shortName": "Acme",
+      "tagline": "Member-owned banking for your neighbourhood",
+      "oauthBankCode": "TD",
+      "logoSvg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1d3557'/><circle cx='32' cy='28' r='12' fill='#a8dadc' opacity='0.9'/><text x='32' y='50' text-anchor='middle' fill='#f1faee' font-family='system-ui,sans-serif' font-size='14' font-weight='700'>AC</text></svg>"
     }
   ]
 }

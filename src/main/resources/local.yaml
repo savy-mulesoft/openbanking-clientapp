@@ -23,3 +23,9 @@ fdx:
     - "ACCOUNT_BASIC"
     - "TRANSACTIONS" 
     - "CUSTOMER_CONTACT"
+
+# Agent chat (optional overrides for General Advisor — maps to agent.general.*)
+agent:
+  general:
+    client_id: ""
+    client_secret: ""

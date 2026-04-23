@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+	<sub-flow name="load-agent-brokers-registry-subflow" doc:name="load-agent-brokers-registry-subflow">
+		<try doc:name="Read registry from OS">
+			<os:retrieve doc:name="Retrieve broker registry" objectStore="agent_brokers_object_store" key="ob_agent_brokers_registry" target="brokerRegistryRaw" />
+			<ee:transform doc:name="Parse registry JSON">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var r = vars.brokerRegistryRaw
+---
+if (r == null) []
+else if (r is String) (read(r, "application/json") as Array) default []
+else if (r is Array) r
+else (read(write(r, "application/json"), "application/json") as Array) default []
+]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<error-handler>
+				<on-error-continue enableNotifications="false" logException="false" type="ANY" doc:name="Empty registry">
+					<ee:transform doc:name="Default empty list">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+[]]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</on-error-continue>
+			</error-handler>
+		</try>
+	</sub-flow>
+
+	<sub-flow name="save-agent-brokers-registry-subflow" doc:name="save-agent-brokers-registry-subflow">
+		<ee:transform doc:name="Serialize registry">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+write(payload, "application/json")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<os:store doc:name="Persist broker registry" objectStore="agent_brokers_object_store" key="ob_agent_brokers_registry">
+			<os:value><![CDATA[#[payload]]]></os:value>
+		</os:store>
+	</sub-flow>
+
+	<sub-flow name="load-default-broker-id-subflow" doc:name="load-default-broker-id-subflow">
+		<try doc:name="Read default broker id">
+			<os:retrieve doc:name="Retrieve default broker id" objectStore="agent_brokers_object_store" key="ob_agent_broker_default" target="defaultBrokerIdRaw" />
+			<error-handler>
+				<on-error-continue enableNotifications="false" logException="false" type="ANY" doc:name="No default set">
+					<set-variable doc:name="Clear default var" variableName="defaultBrokerIdRaw" value="#[null]"/>
+				</on-error-continue>
+			</error-handler>
+		</try>
+	</sub-flow>
+
+	<!-- Fetch /.well-known/agent-card.json and validate A2A-compatible card; returns card + derived fields in vars -->
+	<sub-flow name="fetch-and-validate-agent-card-subflow" doc:name="fetch-and-validate-agent-card-subflow">
+		<!-- normalizedBaseUrl alone first: Mule may evaluate sibling set-variable scripts before vars commit, so wellKnownUrl must be a separate transform. -->
+		<ee:transform doc:name="Normalize broker base URL">
+			<ee:variables>
+				<ee:set-variable variableName="normalizedBaseUrl"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+import drop from dw::core::Arrays
+fun stripWellKnownAgentCardPath(s0) =
+  trim(s0 default "")
+    replace /\/\.well-known\/agent-card\.json\/?$/ with ""
+    replace /\/\.well-known\/agent\.json\/?$/ with ""
+
+fun ensureHttpScheme(s0) = do {
+  var s = trim(s0 default "")
+  ---
+  if (isEmpty(s)) ""
+  else if (startsWith(lower(s), "http://") or startsWith(lower(s), "https://")) s
+  else "https://" ++ s
+}
+
+/** splitBy "://" avoids substringAfter edge cases; never strip the scheme's // */
+fun normalizeBrokerBase(raw0) = do {
+  var raw = ensureHttpScheme(stripWellKnownAgentCardPath(raw0 default ""))
+  ---
+  if (isEmpty(raw)) ""
+  else do {
+    var parts = raw splitBy "://"
+    var schemeKey = lower(parts[0] default "")
+    var hostPath = if (sizeOf(parts) < 2) "" else (drop(parts, 1) joinBy "://")
+    var hp = trim(hostPath) replace /\/+/ with "/"
+    var withScheme = if (isEmpty(hp)) ""
+      else if (schemeKey == "https") "https://" ++ hp
+      else if (schemeKey == "http") "http://" ++ hp
+      else raw
+    ---
+    if (isEmpty(withScheme)) ""
+    else if (!isEmpty(hp) and endsWith(withScheme, "/"))
+      trim(withScheme) replace /\/+$/ with ""
+    else withScheme
+  }
+}
+---
+normalizeBrokerBase(vars.incomingBaseUrl default "")
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Build well-known discovery URL">
+			<ee:variables>
+				<ee:set-variable variableName="wellKnownUrl"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var b = vars.normalizedBaseUrl default ""
+---
+if (isEmpty(b)) ""
+else b ++ "/.well-known/agent-card.json"
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Base URL present">
+			<when expression="#[!isEmpty(vars.wellKnownUrl default '')]">
+				<try doc:name="GET agent-card.json">
+					<http:request method="GET" doc:name="Fetch agent card" config-ref="HTTP_Request_configuration" url="#[vars.wellKnownUrl]" responseTimeout="30000">
+						<http:headers><![CDATA[#[output application/java
+---
+{
+  "Accept": "application/json"
+}]]]></http:headers>
+					</http:request>
+					<ee:transform doc:name="Validate A2A card">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+fun nonEmpty(s) = !isEmpty(trim(s default ""))
+var card = payload
+var nameOk = nonEmpty(card.name)
+var verOk = nonEmpty(card.version)
+var hasProto = !isEmpty(card.protocolVersion default "")
+var hasCaps = card.capabilities != null and (card.capabilities is Object)
+var hasSkills = sizeOf(card.skills default []) > 0
+var hasModes = sizeOf(card.defaultInputModes default []) > 0 or sizeOf(card.defaultOutputModes default []) > 0
+var a2aOk = hasProto or hasCaps or hasSkills or hasModes
+---
+if (!nameOk or !verOk)
+  { valid: false, error: "Agent card must include non-empty name and version." }
+else if (!a2aOk)
+  { valid: false, error: "Agent card is not A2A-compatible: need protocolVersion, capabilities, skills, or default input/output modes." }
+else
+  { valid: true, card: card }
+]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<error-handler>
+						<on-error-continue enableNotifications="true" logException="true" type="ANY" doc:name="Discovery failed">
+							<ee:transform doc:name="Discovery error JSON">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+fun low(s) = lower(s default "")
+var desc = trim(error.description default "")
+var tlsHint =
+  (low(desc) contains "certificate") or (low(desc) contains "hostname") or (low(desc) contains "subject name")
+    or (low(desc) contains "ssl") or (low(desc) contains "tls") or (low(desc) contains "pkix")
+    or (low(desc) contains "handshake")
+var shortDesc = if (sizeOf(desc) > 450) substring(desc, 0, 450) ++ "…" else desc
+---
+{
+  valid: false,
+  error:
+    if (tlsHint)
+      "HTTPS failed: TLS certificate or hostname does not match this URL. Use the broker base hostname from the agent card (open /.well-known/agent-card.json in a browser and copy the same host as the card \"url\" field)."
+      ++ (if (!isEmpty(shortDesc)) (" Detail: " ++ shortDesc) else "")
+    else
+      "Could not fetch or parse /.well-known/agent-card.json from this base URL."
+      ++ (if (!isEmpty(shortDesc)) (" " ++ shortDesc) else "")
+}
+]]></ee:set-payload>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Missing base URL">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  valid: false,
+  error: if (isEmpty(vars.incomingBaseUrl default ""))
+    "Missing url. For preview use ?url=https://your-broker.example.com/path/ — include scheme or use a host-only value (https:// is added automatically)."
+  else
+    "Could not build a valid broker URL from input. Check the URL and try again."
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+
+	<sub-flow name="compute-chat-url-from-card-subflow" doc:name="compute-chat-url-from-card-subflow">
+		<ee:transform doc:name="Derive chatUrl">
+			<ee:variables>
+				<ee:set-variable variableName="computedChatUrl"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+fun joinBasePath(b, p) = do {
+  var base0 = trim(b default "") replace /\/+$/ with ""
+  var path = trim(p default "") replace /^\/+/ with ""
+  ---
+  if (isEmpty(path)) base0
+  else base0 ++ "/" ++ path
+}
+fun stripSlash(s) = trim(s default "") replace /\/+$/ with ""
+/** Many ingress routes only accept POST on the path with a trailing slash (…/broker/ vs …/broker → 404). */
+fun ensureTrailingSlash(s) = do {
+  var z = trim(s default "")
+  ---
+  if (isEmpty(z)) z
+  else if (endsWith(z, "/")) z
+  else z ++ "/"
+}
+var base = vars.normalizedBaseUrl default ""
+var card = vars.agentCardValidated
+var u = card.url default ""
+var t = trim(u)
+var proto = card.protocolVersion default ""
+/** A2A v0.3 brokers speak JSON-RPC at card.url (root), not OpenAI /chat/completions */
+var isA2aJsonRpc = startsWith(proto, "0.3")
+---
+if (isA2aJsonRpc)
+  ensureTrailingSlash(t default base)
+else if (!isEmpty(t) and (startsWith(t, "http://") or startsWith(t, "https://")))
+  if (endsWith(t, "/"))
+    stripSlash(t) ++ "/chat/completions"
+  else
+    t
+else if (!isEmpty(t))
+  joinBasePath(base, t)
+else
+  joinBasePath(base, "chat/completions")
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</sub-flow>
+
+	<flow name="get-agent-brokers-flow" doc:name="get-agent-brokers-flow">
+		<flow-ref doc:name="Load registry" name="load-agent-brokers-registry-subflow"/>
+		<flow-ref doc:name="Load default id" name="load-default-broker-id-subflow"/>
+		<ee:transform doc:name="List response">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+var did = (vars.defaultBrokerIdRaw) default ""
+var didStr = if (did is String) trim(did) else trim(did as String default "")
+var didOut = if (isEmpty(didStr)) null else didStr
+---
+{
+  brokers: payload map (b) -> {
+    id: b.id,
+    baseUrl: b.baseUrl,
+    alias: b.alias default "",
+    name: b.card.name default "",
+    version: b.card.version default "",
+    description: b.card.description default "",
+    chatUrl: b.chatUrl default "",
+    addedAt: b.addedAt default "",
+    card: b.card
+  },
+  defaultBrokerId: didOut
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-payload doc:name="JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<flow name="preview-agent-broker-flow" doc:name="preview-agent-broker-flow">
+		<ee:transform doc:name="incomingBaseUrl from query (MultiMap-safe)">
+			<ee:variables>
+				<ee:set-variable variableName="incomingBaseUrl"><![CDATA[%dw 2.0
+output application/java
+import trim from dw::core::Strings
+var q = attributes.queryParams default {}
+var u = q["url"] default q["URL"]
+fun scalar(v) = v match {
+  case is String -> trim(v)
+  case is Array -> if (sizeOf(v) > 0) trim(v[0] as String) else ""
+  else -> trim(v as String default "")
+}
+---
+if (u == null) "" else scalar(u)
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Fetch card" name="fetch-and-validate-agent-card-subflow"/>
+		<choice doc:name="Valid preview">
+			<when expression="#[payload.valid == true]">
+				<set-variable doc:name="agentCardValidated" variableName="agentCardValidated" value="#[payload.card]"/>
+				<flow-ref doc:name="Compute chat URL" name="compute-chat-url-from-card-subflow"/>
+				<ee:transform doc:name="Preview OK">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var c = vars.agentCardValidated
+---
+{
+  valid: true,
+  card: c,
+  chatUrl: vars.computedChatUrl
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Ensure status">
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<set-payload doc:name="JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<flow name="post-agent-broker-flow" doc:name="post-agent-broker-flow">
+		<ee:transform doc:name="Parse POST body (baseUrl, alias)">
+			<ee:variables>
+				<ee:set-variable variableName="incomingBaseUrl"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var p = payload default {}
+var raw =
+  if (p is Object) (p.baseUrl default p["baseUrl"] default "")
+  else ""
+---
+trim(raw as String default "")
+]]></ee:set-variable>
+				<ee:set-variable variableName="incomingAlias"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var p = payload default {}
+var raw =
+  if (p is Object) (p.alias default p["alias"] default "")
+  else ""
+---
+trim(raw as String default "")
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Required fields present">
+			<when expression="#[isEmpty(vars.incomingBaseUrl as String default '')]">
+				<ee:transform doc:name="Missing base url">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  valid: false,
+  error: "Missing or empty baseUrl."
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<when expression="#[isEmpty(vars.incomingAlias as String default '')]">
+				<ee:transform doc:name="Missing alias">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  valid: false,
+  error: "Missing or empty alias. Provide a display name for this broker."
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<flow-ref doc:name="Load registry for alias check" name="load-agent-brokers-registry-subflow"/>
+				<ee:transform doc:name="Check unique alias (pass-through)">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="aliasAlreadyTaken"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var list = payload as Array
+var want = lower(trim(vars.incomingAlias as String))
+---
+sizeOf((list default []) filter (lower(trim($.alias as String default "")) == want)) > 0
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<choice doc:name="Unique alias">
+					<when expression="#[vars.aliasAlreadyTaken == true]">
+						<ee:transform doc:name="Duplicate alias">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  valid: false,
+  error: "An agent with this alias already exists. Choose a different agent alias."
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise>
+				<flow-ref doc:name="Fetch card" name="fetch-and-validate-agent-card-subflow"/>
+				<choice doc:name="Valid card">
+					<when expression="#[payload.valid == true]">
+						<set-variable doc:name="agentCardValidated" variableName="agentCardValidated" value="#[payload.card]"/>
+						<flow-ref doc:name="Compute chat URL" name="compute-chat-url-from-card-subflow"/>
+						<flow-ref doc:name="Load registry" name="load-agent-brokers-registry-subflow"/>
+						<ee:transform doc:name="Append broker">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var list = payload as Array
+var id = "ob_ag_" ++ lower((java!java::util::UUID::randomUUID() as String) replace /-/ with "")
+var addedAtIso = now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+var card = vars.agentCardValidated
+var entry = {
+  id: id,
+  alias: vars.incomingAlias,
+  baseUrl: vars.normalizedBaseUrl,
+  card: card,
+  chatUrl: vars.computedChatUrl,
+  addedAt: addedAtIso
+}
+---
+list + entry
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<set-variable doc:name="newBrokerEntry" variableName="newBrokerEntry" value="#[payload[-1]]"/>
+						<flow-ref doc:name="Save registry" name="save-agent-brokers-registry-subflow"/>
+						<ee:transform doc:name="Created response">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var e = vars.newBrokerEntry
+---
+{
+  ok: true,
+  broker: {
+    id: e.id,
+    alias: e.alias,
+    baseUrl: e.baseUrl,
+    name: e.card.name,
+    version: e.card.version,
+    description: e.card.description default "",
+    chatUrl: e.chatUrl,
+    addedAt: e.addedAt
+  }
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="httpStatus"><![CDATA[201]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise>
+						<ee:transform doc:name="Bad request body">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  valid: false,
+  error: payload.error default "Invalid or non-A2A agent card."
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+			</otherwise>
+		</choice>
+		<set-payload doc:name="JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<flow name="delete-agent-broker-flow" doc:name="delete-agent-broker-flow">
+		<ee:transform doc:name="Extract id from path">
+			<ee:variables>
+				<ee:set-variable variableName="brokerIdToDelete"><![CDATA[%dw 2.0
+output application/java
+var parts = (attributes.requestPath default "") splitBy "/"
+---
+if (sizeOf(parts) > 4) parts[-1] else ""
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Has id">
+			<when expression="#[!isEmpty(vars.brokerIdToDelete)]">
+				<flow-ref doc:name="Load registry" name="load-agent-brokers-registry-subflow"/>
+				<ee:transform doc:name="Filter out id">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var id = vars.brokerIdToDelete
+var list = payload as Array
+var filtered = list filter ($.id != id)
+---
+if (sizeOf(filtered) == sizeOf(list))
+  { deleted: false, error: "Broker not found" }
+else
+  { deleted: true, id: id, brokers: filtered }
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="Deleted">
+					<when expression="#[payload.deleted == true]">
+						<ee:transform doc:name="Save filtered">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.brokers]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Save registry" name="save-agent-brokers-registry-subflow"/>
+						<flow-ref doc:name="After delete clear default" name="delete-agent-broker-maybe-clear-default-subflow"/>
+						<ee:transform doc:name="204 body">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  ok: true,
+  id: vars.brokerIdToDelete
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise>
+						<ee:transform doc:name="Not found">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Missing id">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: "Missing broker id in path"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<set-payload doc:name="JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<sub-flow name="delete-agent-broker-maybe-clear-default-subflow" doc:name="delete-agent-broker-maybe-clear-default-subflow">
+		<flow-ref doc:name="Read default" name="load-default-broker-id-subflow"/>
+		<choice doc:name="Deleted broker was default">
+			<when expression="#[((vars.defaultBrokerIdRaw as String default '') == (vars.brokerIdToDelete as String)) and not isEmpty((vars.brokerIdToDelete as String) default '')]">
+				<os:remove doc:name="Remove default broker" objectStore="agent_brokers_object_store" key="ob_agent_broker_default"/>
+			</when>
+		</choice>
+	</sub-flow>
+
+	<flow name="put-agent-broker-default-flow" doc:name="put-agent-broker-default-flow">
+		<ee:transform doc:name="ID from body">
+			<ee:variables>
+				<ee:set-variable variableName="defaultPostId"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var p = payload default {}
+var raw = if (p is Object) (p.id default p["id"] default null) else null
+---
+if (raw == null) "" else trim(raw as String default "")
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Load registry" name="load-agent-brokers-registry-subflow"/>
+		<ee:transform doc:name="Default id exists in registry">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="defaultBrokerTargetExists"><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var list = payload as Array
+var want = trim(vars.defaultPostId as String default "")
+---
+sizeOf((list) filter (trim($.id as String default "") == want)) > 0
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Set or clear default">
+			<when expression="#[isEmpty(vars.defaultPostId as String default '')]">
+				<os:remove doc:name="Clear default" objectStore="agent_brokers_object_store" key="ob_agent_broker_default"/>
+				<ee:transform doc:name="Default cleared response">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ ok: true, defaultBrokerId: null }]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<when expression="#[vars.defaultBrokerTargetExists == true]">
+				<os:store doc:name="Store default broker id" objectStore="agent_brokers_object_store" key="ob_agent_broker_default">
+					<os:value><![CDATA[#[vars.defaultPostId]]]></os:value>
+				</os:store>
+				<ee:transform doc:name="Default set response">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var id = trim(vars.defaultPostId as String default "")
+---
+{ ok: true, defaultBrokerId: id }]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Broker not found for default">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ ok: false, error: "No broker with that id is registered." }]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<set-payload doc:name="JSON MIME" value="#[payload]" mimeType="application/json; charset=UTF-8"/>
+	</flow>
+
+	<flow name="agent-brokers-api-router-flow" doc:name="agent-brokers-api-router-flow">
+		<choice doc:name="Broker routes">
+			<when expression="#[attributes.requestPath == '/api/agent/brokers/preview' and upper(attributes.method as String) == 'GET']">
+				<flow-ref doc:name="Preview broker" name="preview-agent-broker-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/agent/brokers' and upper(attributes.method as String) == 'GET']">
+				<flow-ref doc:name="List brokers" name="get-agent-brokers-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/agent/brokers/default' and upper(attributes.method as String) == 'POST']">
+				<flow-ref doc:name="Set default broker" name="put-agent-broker-default-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/agent/brokers' and upper(attributes.method as String) == 'POST']">
+				<flow-ref doc:name="Add broker" name="post-agent-broker-flow"/>
+			</when>
+			<when expression="#[(attributes.requestPath startsWith '/api/agent/brokers/') and (attributes.requestPath != '/api/agent/brokers/default') and upper(attributes.method as String) == 'DELETE']">
+				<flow-ref doc:name="Delete broker" name="delete-agent-broker-flow"/>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Broker route miss">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "error": "agent brokers route not found",
+  "path": attributes.requestPath
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

@@ -25,5 +25,6 @@ http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/cu
 	</http:request-config>
 
 	<os:object-store name="oauth_object_store" doc:name="OAuth persistent store" persistent="true" />
+	<os:object-store name="agent_brokers_object_store" doc:name="A2A agent broker registry" persistent="true" />
 	
 </mule>

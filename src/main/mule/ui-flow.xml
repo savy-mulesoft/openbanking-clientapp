@@ -60,8 +60,7 @@ import * from dw::core::Strings
 var n = attributes.uriParams.name default &quot;&quot;
 ---
 (n matches /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/)
-and (endsWith(lower(n), &quot;.png&quot;) or endsWith(lower(n), &quot;.jpg&quot;) or endsWith(lower(n), &quot;.jpeg&quot;) or endsWith(lower(n), &quot;.svg&quot;) or endsWith(lower(n), &quot;.gif&quot;) or endsWith(lower(n), &quot;.webp&quot;))
-and startsWith(lower(n), &quot;logo_&quot;)]">
+and (endsWith(lower(n), &quot;.png&quot;) or endsWith(lower(n), &quot;.jpg&quot;) or endsWith(lower(n), &quot;.jpeg&quot;) or endsWith(lower(n), &quot;.svg&quot;) or endsWith(lower(n), &quot;.gif&quot;) or endsWith(lower(n), &quot;.webp&quot;))]">
 				<try doc:name="Read classpath image">
 					<ee:transform doc:name="Load bytes">
 						<ee:message>
@@ -88,7 +87,26 @@ else "image/jpeg"
 ]]></ee:set-variable>
 						</ee:variables>
 					</ee:transform>
-					<set-payload doc:name="Typed image" value="#[payload]" mimeType="#[vars.imageMime]"/>
+					<choice doc:name="Set MIME Type by Extension">
+						<when expression="#[vars.imageMime == 'image/png']">
+							<set-payload doc:name="PNG Image" value="#[payload]" mimeType="image/png"/>
+						</when>
+						<when expression="#[vars.imageMime == 'image/jpeg']">
+							<set-payload doc:name="JPEG Image" value="#[payload]" mimeType="image/jpeg"/>
+						</when>
+						<when expression="#[vars.imageMime == 'image/svg+xml']">
+							<set-payload doc:name="SVG Image" value="#[payload]" mimeType="image/svg+xml"/>
+						</when>
+						<when expression="#[vars.imageMime == 'image/gif']">
+							<set-payload doc:name="GIF Image" value="#[payload]" mimeType="image/gif"/>
+						</when>
+						<when expression="#[vars.imageMime == 'image/webp']">
+							<set-payload doc:name="WebP Image" value="#[payload]" mimeType="image/webp"/>
+						</when>
+						<otherwise>
+							<set-payload doc:name="Default Image" value="#[payload]" mimeType="application/octet-stream"/>
+						</otherwise>
+					</choice>
 					<error-handler>
 						<on-error-continue enableNotifications="true" logException="true" doc:name="Missing image" type="ANY">
 							<ee:transform doc:name="404 body">
@@ -128,7 +146,9 @@ output text/plain
 
 	<!-- BMO Client API Flow - Handles API requests from the UI -->
 	<flow name="bmo-client-api-flow" doc:name="bmo-client-api-flow">
-		<http:listener doc:name="BMO API Listener" config-ref="HTTP_Listener_config" path="/api/*" allowedMethods="GET,POST,PUT,DELETE"/>
+		<http:listener doc:name="BMO API Listener" config-ref="HTTP_Listener_config" path="/api/*" allowedMethods="GET,POST,PUT,DELETE">
+			<http:response statusCode="#[vars.httpStatus default 200]"/>
+		</http:listener>
 		<logger level="INFO" doc:name="Log API Request" message="BMO API request: #[attributes.method] #[attributes.requestPath]"/>
 		<choice doc:name="Route API Requests">
 			<when expression="#[attributes.requestPath == '/api/accounts']">
@@ -139,6 +159,12 @@ output text/plain
 			</when>
 			<when expression="#[attributes.requestPath == '/api/balance']">
 				<flow-ref doc:name="Get Balance" name="get-balance-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath startsWith '/api/agent/brokers']">
+				<flow-ref doc:name="Agent brokers API" name="agent-brokers-api-router-flow"/>
+			</when>
+			<when expression="#[attributes.requestPath == '/api/agent/chat' and upper(attributes.method as String) == 'POST']">
+				<flow-ref doc:name="Agent chat" name="post-agent-chat-flow"/>
 			</when>
 			<otherwise>
 				<ee:transform doc:name="API Not Found">

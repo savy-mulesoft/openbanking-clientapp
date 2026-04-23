@@ -7,6 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Open Banking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet" />
     <style>
         :root {
             --bmo-teal: #007078;
@@ -152,6 +155,7 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
+            min-height: 48px;
         }
 
         .header-toolbar__spacer {
@@ -162,16 +166,37 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: nowrap;
         }
 
         .header-dropdown-anchor {
             position: relative;
         }
 
+        /* Notifications tray: center under bell on small screens so panel doesn’t hang off-screen */
+        .header-dropdown-anchor--notifs .header-dropdown--notifs {
+            right: auto;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(340px, calc(100vw - 20px));
+            max-width: min(340px, calc(100vw - 20px));
+        }
+
+        @media (min-width: 480px) {
+            .header-dropdown-anchor--notifs .header-dropdown--notifs {
+                left: auto;
+                right: 0;
+                transform: none;
+                width: min(340px, calc(100vw - 28px));
+            }
+        }
+
         .header-ql-btn {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
+            min-height: 44px;
             padding: 8px 14px;
             border-radius: 100px;
             border: 1px solid rgba(255, 255, 255, 0.28);
@@ -221,7 +246,10 @@
             position: relative;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            min-height: 44px;
+            min-width: 44px;
             padding: 8px 12px 8px 14px;
             border-radius: 100px;
             border: 1px solid rgba(255, 255, 255, 0.28);
@@ -258,10 +286,15 @@
             transform: rotate(180deg);
         }
 
+        #notifBadge[hidden] {
+            display: none !important;
+        }
+
         .notif-badge {
             position: absolute;
             top: 2px;
             right: 2px;
+            z-index: 3;
             min-width: 18px;
             height: 18px;
             padding: 0 5px;
@@ -285,6 +318,7 @@
             align-items: center;
             gap: 8px;
             max-width: min(160px, 38vw);
+            min-height: 44px;
             padding: 5px 10px 5px 5px;
             border-radius: 100px;
             border: 1px solid rgba(255, 255, 255, 0.22);
@@ -380,6 +414,26 @@
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
+        @keyframes notifTrayInMobile {
+            from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.98); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
+        @keyframes notifTrayInWide {
+            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .header-dropdown-anchor--notifs .header-dropdown.header-dropdown--notifs {
+            animation: notifTrayInMobile 0.28s var(--ease-spring) both;
+        }
+
+        @media (min-width: 480px) {
+            .header-dropdown-anchor--notifs .header-dropdown.header-dropdown--notifs {
+                animation: notifTrayInWide 0.28s var(--ease-spring) both;
+            }
+        }
+
         .header-dropdown[hidden] {
             display: none !important;
         }
@@ -387,6 +441,370 @@
         .header-dropdown--wide {
             min-width: 268px;
             max-width: min(300px, calc(100vw - 40px));
+        }
+
+        .header-dropdown--notifs {
+            padding: 6px;
+            min-width: 292px;
+            max-width: min(340px, calc(100vw - 28px));
+        }
+
+        .notif-entry {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px 10px 13px;
+            border: none;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.18s ease, opacity 0.18s ease;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+        }
+
+        .notif-entry + .notif-entry {
+            margin-top: 1px;
+        }
+
+        @media (hover: hover) {
+            .notif-entry:hover {
+                background: rgba(0, 112, 120, 0.07);
+            }
+        }
+
+        .notif-entry:active {
+            background: rgba(0, 112, 120, 0.1);
+        }
+
+        .notif-entry--unread {
+            padding-left: 15px;
+        }
+
+        .notif-entry--unread::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 40px;
+            border-radius: 3px;
+            background: var(--bmo-teal);
+        }
+
+        .notif-entry__icon {
+            flex-shrink: 0;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            background: rgba(0, 112, 120, 0.11);
+            color: var(--bmo-teal-dark);
+        }
+
+        .notif-entry__icon--promo {
+            background: linear-gradient(145deg, #007078 0%, #0c2340 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(12, 35, 64, 0.2);
+        }
+
+        .notif-entry__icon--promo svg {
+            display: block;
+        }
+
+        .notif-entry__body {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 3px;
+            line-height: 1.35;
+        }
+
+        .notif-entry__title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+
+        .notif-entry__meta {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Promo cashback: single row — icon + copy share one flex line, same vertical center */
+        .notif-entry--promo-cashback {
+            align-items: center;
+        }
+
+        .notif-entry__promo-inline {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notif-entry__promo-icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 2px 6px rgba(12, 35, 64, 0.18));
+        }
+
+        .notif-entry__promo-icon svg {
+            display: block;
+        }
+
+        .notif-entry__promo-copy {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 6px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .notif-entry__promo-copy strong {
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .notif-entry__promo-copy .notif-entry__promo-sep {
+            color: var(--text-muted);
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .notif-entry__promo-copy .notif-entry__promo-sub {
+            color: var(--text-muted);
+            font-weight: 500;
+            min-width: 0;
+            flex: 1 1 120px;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .promo-connect-disclaimer {
+            margin: 0 0 18px 0;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 112, 120, 0.28);
+            background: linear-gradient(135deg, rgba(0, 112, 120, 0.1) 0%, rgba(12, 35, 64, 0.05) 100%);
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .promo-connect-disclaimer strong {
+            color: var(--bmo-teal-dark);
+        }
+
+        .scope-lead--promo {
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.55;
+        }
+
+        .scope-lead--promo strong {
+            color: var(--bmo-teal-dark);
+        }
+
+        .scope-promo-hint {
+            margin: 0 0 14px 0;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.45;
+            font-weight: 500;
+            color: #6b4a00;
+            background: rgba(194, 122, 0, 0.1);
+            border: 1px solid rgba(194, 122, 0, 0.22);
+        }
+
+        .scope-promo-trust {
+            margin-top: 18px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            background: rgba(12, 35, 64, 0.03);
+            border: 1px solid var(--border);
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--text-muted);
+        }
+
+        .scope-promo-trust h4 {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text);
+            margin: 0 0 10px 0;
+        }
+
+        .scope-promo-trust ul {
+            margin: 0 0 12px 0;
+            padding-left: 18px;
+        }
+
+        .scope-promo-trust li {
+            margin-bottom: 8px;
+        }
+
+        .scope-promo-trust a {
+            color: var(--bmo-teal-dark);
+            font-weight: 600;
+        }
+
+        .scope-promo-row {
+            margin-bottom: 16px;
+        }
+
+        #scopeSelection .scope-checklist {
+            margin-bottom: 8px;
+        }
+
+        #scopeSelection .scope-promo-trust {
+            margin-top: 20px;
+            margin-bottom: 4px;
+        }
+
+        .scope-promo-label {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            cursor: pointer;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .scope-promo-label input {
+            margin-top: 3px;
+            accent-color: var(--bmo-teal);
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .scope-promo-row-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .scope-promo-row-title .req-pill {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: rgba(0, 112, 120, 0.14);
+            color: var(--bmo-teal-dark);
+            vertical-align: middle;
+        }
+
+        .scope-promo-row-title .rec-pill {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: rgba(12, 35, 64, 0.08);
+            color: var(--text-muted);
+            vertical-align: middle;
+        }
+
+        .scope-promo-row-warn--soft {
+            color: #5c4a00 !important;
+            background: rgba(194, 122, 0, 0.08) !important;
+            border: 1px solid rgba(194, 122, 0, 0.18);
+        }
+
+        .scope-promo-row-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        .scope-promo-row-warn {
+            display: none;
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8a4b00;
+            background: rgba(194, 122, 0, 0.12);
+            border: 1px solid rgba(194, 122, 0, 0.25);
+        }
+
+        .notif-entry--read {
+            opacity: 0.68;
+        }
+
+        .notif-entry--read::before {
+            display: none;
+        }
+
+        .modal--promo {
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .promo-modal-ribbon {
+            margin: -4px -20px 18px -20px;
+            padding: 14px 16px;
+            background: linear-gradient(120deg, rgba(0, 112, 120, 0.14) 0%, rgba(0, 112, 120, 0.05) 100%);
+            border-bottom: 1px solid rgba(0, 112, 120, 0.12);
+            text-align: center;
+        }
+
+        .promo-modal-ribbon span {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--bmo-teal-dark);
+        }
+
+        .promo-modal-lead {
+            font-size: 15px;
+            line-height: 1.55;
+            color: var(--text);
+            margin-bottom: 22px;
         }
 
         .header-dropdown__item {
@@ -604,7 +1022,7 @@
 
         .card-external-head {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
             gap: 10px;
             margin-bottom: 8px;
@@ -916,13 +1334,58 @@
             font-size: 15px;
         }
 
-        .bank-list { display: grid; gap: 10px; margin-bottom: 22px; }
+        .bank-search-wrap {
+            margin-bottom: 14px;
+        }
+
+        .bank-search-wrap input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            background: var(--bmo-white);
+            color: var(--text);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .bank-search-wrap input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .bank-search-wrap input:focus {
+            outline: none;
+            border-color: rgba(0, 112, 120, 0.55);
+            box-shadow: 0 0 0 3px rgba(0, 112, 120, 0.12);
+        }
+
+        .bank-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 22px;
+            max-height: min(52vh, 440px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-gutter: stable;
+        }
+
+        @media (max-width: 340px) {
+            .bank-list {
+                grid-template-columns: 1fr;
+            }
+        }
 
         .bank-option {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 14px;
-            padding: 14px;
+            text-align: center;
+            gap: 10px;
+            padding: 16px 12px;
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
             cursor: pointer;
@@ -940,9 +1403,25 @@
             }
         }
 
+        .bank-option .bank-name {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .bank-option .bank-sub {
+            font-size: 11px;
+            line-height: 1.35;
+            color: var(--text-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         .bank-icon {
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             background: var(--bmo-white);
             border-radius: 11px;
             display: flex;
@@ -964,6 +1443,30 @@
         .bank-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
         .modal-buttons { display: flex; gap: 12px; }
+
+        .modal-buttons--scope-connect {
+            margin-top: 8px;
+            padding-top: 12px;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: stretch;
+            border-top: 1px solid rgba(12, 35, 64, 0.08);
+        }
+
+        .modal-buttons--scope-connect .modal-btn {
+            flex: 1 1 auto;
+            min-width: min(100%, 120px);
+            min-height: 48px;
+            padding: 12px 16px;
+            line-height: 1.35;
+            white-space: normal;
+            text-align: center;
+        }
+
+        .modal-buttons--scope-connect .modal-btn-primary {
+            flex: 1 1 200px;
+            font-size: 15px;
+        }
 
         .modal-btn {
             flex: 1;
@@ -1079,24 +1582,30 @@
             transform: translate(-50%, -120%);
             z-index: 2000;
             width: calc(100% - 32px);
-            max-width: 400px;
+            max-width: 360px;
             transition: transform 0.38s var(--ease-spring);
         }
 
         .toast-host.is-visible { transform: translate(-50%, 0); }
 
         .toast {
-            background: #0d9f6e;
-            color: white;
-            padding: 14px 18px;
-            border-radius: var(--radius-md);
-            font-size: 15px;
+            background: rgba(0, 92, 102, 0.94);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 13px;
             font-weight: 600;
+            letter-spacing: -0.015em;
             text-align: center;
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 10px 40px rgba(12, 35, 64, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
-        .toast--warn { background: #c27a00; }
+        .toast--warn {
+            background: rgba(180, 110, 0, 0.94);
+            box-shadow: 0 10px 40px rgba(120, 70, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.12);
+        }
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(10px); }
@@ -1491,6 +2000,1029 @@
         .advisor-bank-name { font-weight: 600; font-size: 15px; color: var(--text); }
         .advisor-bank-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
         .advisor-scope-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 20px; }
+
+        /* Smart offers banner — same visual language as cards (demo, non-persistent) */
+        .smart-offers-banner {
+            position: relative;
+            margin: 2px 0 20px 0;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--bmo-white);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .smart-offers-banner__close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 2;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(12, 35, 64, 0.06);
+            color: var(--text-muted);
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .smart-offers-banner__close:hover {
+            background: #fff;
+            color: var(--text);
+        }
+
+        .smart-offers-banner__main {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            padding: 16px 48px 16px 18px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            text-align: left;
+            font: inherit;
+            color: var(--text);
+            transition: background 0.15s ease;
+        }
+
+        .smart-offers-banner__main:active {
+            background: rgba(0, 112, 120, 0.06);
+        }
+
+        .smart-offers-banner__icon {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, rgba(0, 112, 120, 0.12) 0%, rgba(12, 35, 64, 0.08) 100%);
+            border: 1px solid rgba(0, 112, 120, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .smart-offers-banner__icon svg {
+            display: block;
+        }
+
+        .smart-offers-banner__text {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+            color: var(--text);
+        }
+
+        .modal--smart-offers {
+            max-width: 440px;
+            max-height: min(92dvh, 720px);
+        }
+
+        .smart-offers-modal__lead {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: -4px 0 16px 0;
+            line-height: 1.5;
+        }
+
+        .smart-offer-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%);
+        }
+
+        .smart-offer-card:last-of-type {
+            margin-bottom: 8px;
+        }
+
+        .smart-offer-card__visual {
+            height: 72px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.02em;
+        }
+
+        .smart-offer-card__visual--platinum {
+            background: linear-gradient(115deg, #0c2340 0%, #1a365d 40%, #007078 100%);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .smart-offer-card__visual--savings {
+            background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+            color: #065f46;
+            gap: 8px;
+        }
+
+        .smart-offer-card__visual--savings .pct {
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .smart-offer-card__visual--loan {
+            background: rgba(12, 35, 64, 0.06);
+            color: var(--bmo-teal-dark);
+        }
+
+        .smart-offer-card__hook {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--bmo-teal-dark);
+            margin-bottom: 8px;
+            line-height: 1.45;
+        }
+
+        .smart-offer-card__value {
+            font-size: 14px;
+            color: var(--text);
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .smart-offer-card__terms {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.45;
+        }
+
+        .smart-offer-card__cta {
+            width: 100%;
+            min-height: 44px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--bmo-teal);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: filter 0.15s, transform 0.12s;
+        }
+
+        .smart-offer-card__cta:active {
+            transform: scale(0.99);
+        }
+
+        @media (hover: hover) {
+            .smart-offer-card__cta:hover {
+                filter: brightness(1.05);
+            }
+        }
+
+        /* —— Agent chat: FAB + bottom sheet —— */
+        .agent-chat-fab {
+            position: fixed;
+            right: max(16px, env(safe-area-inset-right));
+            left: auto;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            z-index: 1200;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            /* Align with .app-header gradient (reads lighter than --bmo-navy alone; avoids “black-blue” on mobile) */
+            background: #0f2d52;
+            color: #fff;
+            box-shadow:
+                0 2px 10px rgba(15, 45, 82, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease, background 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .agent-chat-fab:active {
+            transform: scale(0.94);
+            background: #1a5088;
+        }
+        .agent-chat-fab__logo {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transform-origin: center center;
+            animation: agent-chat-fab-logo-idle 2.6s ease-in-out infinite;
+        }
+        .agent-chat-fab__svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+        @keyframes agent-chat-fab-logo-idle {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.07); opacity: 0.94; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .agent-chat-fab,
+            .agent-chat-fab__logo {
+                transition: none;
+            }
+            .agent-chat-fab__logo {
+                animation: none !important;
+            }
+        }
+        .agent-chat-fab[hidden] { display: none !important; }
+
+        .agent-chat-panel {
+            /* Condensed professional UI font: more characters per line and slightly tighter line rhythm */
+            --agent-chat-font: "IBM Plex Sans Condensed", "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1201;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 430px;
+            height: min(86dvh, 580px);
+            background: #fff;
+            border-radius: 22px 22px 0 0;
+            box-shadow: 0 -8px 40px rgba(12, 35, 64, 0.18);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            transform: translateY(105%);
+            opacity: 1;
+            pointer-events: none;
+            transition: transform 0.32s var(--ease-spring);
+            padding-bottom: env(safe-area-inset-bottom);
+            font-family: var(--agent-chat-font);
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        .agent-chat-panel.is-open {
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .agent-chat-panel[hidden] { display: none !important; }
+
+        .agent-chat-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 10px 12px 12px;
+            background: #fff;
+            color: #0f172a;
+            flex-shrink: 0;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+        .agent-chat-head__identity {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        .agent-chat-head__logo {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #0176d3 0%, #1589ee 50%, #0b5cab 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            line-height: 1;
+            box-shadow: 0 1px 3px rgba(1, 118, 211, 0.35);
+            overflow: hidden;
+        }
+        .agent-chat-head__logo-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .agent-chat-head__monogram {
+            position: relative;
+            z-index: 1;
+        }
+        .agent-chat-head__text {
+            min-width: 0;
+            flex: 1;
+        }
+        .agent-chat-head__select-wrap {
+            position: relative;
+            max-width: min(100%, 220px);
+        }
+        .agent-chat-head__select {
+            width: 100%;
+            min-height: 32px;
+            border: none;
+            border-radius: 8px;
+            padding: 2px 28px 2px 2px;
+            font-size: 15px;
+            font-weight: 700;
+            /* Alias line: pre-condensed system stack (matches earlier chat) */
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #0f172a;
+            background: transparent;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23475569' d='M1.41 0 6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+        .agent-chat-head__select:focus {
+            outline: 2px solid rgba(1, 118, 211, 0.35);
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        .agent-chat-head__subtitle {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            margin-top: 1px;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .agent-chat-head__subtitle[hidden] {
+            display: none !important;
+        }
+        .agent-chat-icon-btn {
+            width: 38px;
+            height: 38px;
+            border: none;
+            border-radius: 10px;
+            background: #f1f5f9;
+            color: #475569;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .agent-chat-icon-btn:hover { background: #e2e8f0; color: #334155; }
+        .agent-chat-icon-btn:active { background: #cbd5e1; }
+
+        .agent-chat-settings {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            padding: 12px;
+            gap: 10px;
+            overflow-y: auto;
+        }
+        .agent-chat-settings.is-visible { display: flex; }
+        .agent-chat-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .agent-chat-panel--minimized .agent-chat-body {
+            display: none;
+        }
+        .agent-chat-panel--minimized {
+            height: auto;
+            max-height: none;
+        }
+        .agent-chat-main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        .agent-chat-main.is-hidden { display: none; }
+        .agent-chat-scroll {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .agent-chat-powered {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            padding: 8px 10px 6px;
+            flex-shrink: 0;
+        }
+        .agent-chat-powered__logo {
+            height: 20px;
+            width: auto;
+            max-width: 112px;
+            object-fit: contain;
+            display: block;
+        }
+        .agent-chat-powered__label {
+            line-height: 1;
+        }
+
+        .agent-chat-settings h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--bmo-teal-dark);
+            margin-bottom: 4px;
+        }
+        .agent-chat-settings input[type="url"],
+        .agent-chat-settings input[type="text"] {
+            width: 100%;
+            min-height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            padding: 0 10px;
+            font-size: 14px;
+        }
+        .agent-chat-settings .agent-chat-row-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .agent-chat-settings button.secondary {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .agent-chat-settings button.danger {
+            border-color: rgba(180, 40, 40, 0.35);
+            color: #a32020;
+        }
+        .agent-chat-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: -4px 0 8px;
+            line-height: 1.35;
+        }
+        .agent-chat-hint--collapsible {
+            margin: 0 0 8px;
+            padding: 8px 10px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .agent-chat-req {
+            color: #c41e1e;
+            font-weight: 700;
+            text-decoration: none;
+            border: none;
+            margin-left: 1px;
+        }
+        .agent-chat-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .agent-chat-field__label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .agent-chat-field__label-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .agent-chat-info-btn {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--bmo-teal);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .agent-chat-info-btn:hover {
+            background: #f0f7f8;
+            border-color: var(--bmo-teal);
+        }
+        .agent-chat-broker-list {
+            font-size: 13px;
+            color: var(--text);
+        }
+        .agent-chat-broker-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 10px 8px 12px;
+            max-height: 280px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fafbfc;
+        }
+        .agent-chat-broker-card {
+            min-width: 0;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 10px 8px 8px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+        .agent-chat-broker-card:focus {
+            outline: 2px solid var(--bmo-teal);
+            outline-offset: 2px;
+        }
+        .agent-chat-broker-card__line {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .agent-chat-broker-card__alias {
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text);
+        }
+        .agent-chat-broker-card__cname {
+            font-size: 12px;
+            color: #475569;
+        }
+        .agent-chat-broker-card__ver {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .agent-chat-broker-default-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--bmo-teal);
+            margin-bottom: 2px;
+        }
+        .agent-chat-broker-card__actions {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: auto;
+            padding-top: 6px;
+        }
+        .agent-chat-broker-card__actions button {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+        }
+        .agent-chat-broker-set-default {
+            color: #0b5cab;
+            border-color: rgba(1, 118, 211, 0.35) !important;
+        }
+        .agent-chat-broker-set-default:hover {
+            background: #f0f7ff;
+        }
+        .agent-broker-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10060;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: max(12px, env(safe-area-inset-bottom));
+        }
+        .agent-broker-modal[hidden] {
+            display: none !important;
+        }
+        .agent-broker-modal__backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 30, 40, 0.48);
+        }
+        .agent-broker-modal__sheet {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            max-height: min(86vh, 640px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+        }
+        .agent-broker-modal__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--bmo-teal);
+        }
+        .agent-broker-modal__head button {
+            border: none;
+            background: transparent;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+        .agent-broker-modal__head button:hover {
+            background: #f0f4f6;
+            color: var(--text);
+        }
+        .agent-broker-modal__body {
+            padding: 12px 14px 16px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text);
+        }
+        .agent-broker-dl {
+            margin: 0;
+            display: grid;
+            grid-template-columns: minmax(100px, 34%) 1fr;
+            gap: 6px 10px;
+            align-items: start;
+        }
+        .agent-broker-dl dt {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .agent-broker-dl dd {
+            margin: 0;
+            word-break: break-word;
+        }
+        .agent-broker-url {
+            font-size: 11px;
+            color: #0d6b73;
+        }
+        .agent-broker-skills-h {
+            margin: 14px 0 8px;
+            font-size: 13px;
+            color: var(--bmo-teal);
+        }
+        .agent-broker-skill {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            background: #fafbfc;
+        }
+        .agent-broker-skill-desc {
+            margin: 6px 0 0;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .agent-chat-card-preview {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.45;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: 8px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .agent-chat-msgs {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 12px 10px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            background: #e9edf0;
+            background-image:
+                radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.04) 1px, transparent 0);
+            background-size: 20px 20px;
+        }
+        .agent-chat-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            max-width: 100%;
+            margin-bottom: 10px;
+        }
+        .agent-chat-row--user {
+            flex-direction: row;
+            justify-content: flex-end;
+        }
+        .agent-chat-row--assistant {
+            flex-direction: row;
+            justify-content: flex-start;
+        }
+        .agent-chat-bubble-avatar {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #0176d3 0%, #1589ee 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(1, 118, 211, 0.35);
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .agent-chat-bubble-avatar--glyph {
+            font-size: 11px;
+        }
+        .agent-chat-bubble-avatar svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+            opacity: 0.95;
+        }
+        .agent-chat-bubble {
+            min-width: 0;
+            max-width: min(92%, 300px);
+            padding: 0;
+            font-size: 14.5px;
+            line-height: 1.38;
+            letter-spacing: -0.01em;
+            word-break: break-word;
+        }
+        .agent-chat-bubble__inner {
+            padding: 10px 14px 10px 13px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .agent-chat-bubble--user {
+            background: #e0f0ff;
+            color: #0c4a6e;
+            border-radius: 18px 18px 5px 18px;
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(1, 118, 211, 0.12);
+            border: 1px solid rgba(1, 118, 211, 0.12);
+        }
+        .agent-chat-bubble--user .agent-chat-bubble__inner {
+            text-shadow: none;
+        }
+        .agent-chat-bubble--assistant {
+            background: #fff;
+            color: #1a2a3a;
+            border-radius: 5px 18px 18px 18px;
+            border: none;
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .agent-chat-bubble--assistant .agent-chat-bubble__inner {
+            color: #1e293b;
+        }
+        .agent-chat-bubble__text {
+            margin: 0;
+        }
+        .agent-chat-error-debug {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(148, 163, 184, 0.45);
+        }
+        .agent-chat-error-debug__toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 14px;
+        }
+        .agent-chat-error-debug__toggle {
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #0369a1;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .agent-chat-error-debug__toggle:hover {
+            color: #0c4a6e;
+        }
+        .agent-chat-error-debug__copy {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.2);
+            color: #475569;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .agent-chat-error-debug__copy:hover {
+            background: rgba(148, 163, 184, 0.35);
+            color: #1e293b;
+        }
+        .agent-chat-error-debug__copy svg {
+            display: block;
+        }
+        .agent-chat-error-debug__panel {
+            margin: 8px 0 0;
+            padding: 8px 10px;
+            font-size: 11.5px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #f1f5f9;
+            color: #334155;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            max-height: 220px;
+            overflow: auto;
+        }
+        .agent-chat-bubble--waiting {
+            max-width: min(92%, 320px);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            background: #fff;
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.5;
+            border-radius: 5px 18px 18px 18px;
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 112, 120, 0.12);
+        }
+        .agent-chat-bubble--waiting .agent-chat-wait-row {
+            padding: 10px 14px 10px 12px;
+        }
+        .agent-chat-wait-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .agent-chat-wait-spin {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 112, 120, 0.2);
+            border-top-color: var(--bmo-teal);
+            border-radius: 50%;
+            animation: agent-chat-wait-spin 0.75s linear infinite;
+        }
+        @keyframes agent-chat-wait-spin {
+            to { transform: rotate(360deg); }
+        }
+        .agent-chat-wait-msg {
+            line-height: 1.4;
+        }
+        .agent-chat-foot {
+            padding: 10px 10px 12px 12px;
+            border-top: 1px solid rgba(0, 0, 0, 0.07);
+            background: #f8fafc;
+            display: flex;
+            gap: 6px;
+            align-items: flex-end;
+        }
+        .agent-chat-foot__input-col {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .agent-chat-foot__attach {
+            width: 44px;
+            height: 48px;
+            border: none;
+            border-radius: 12px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .agent-chat-foot__attach:hover { color: #0176d3; background: #f1f5f9; }
+        .agent-chat-foot__attach svg { display: block; }
+        .agent-chat-file-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-height: 0;
+        }
+        .agent-chat-file-chips[hidden] { display: none !important; }
+        .agent-chat-file-chip {
+            font-size: 11px;
+            color: #0c4a6e;
+            background: #e0f0ff;
+            border: 1px solid rgba(1, 118, 211, 0.2);
+            border-radius: 6px;
+            padding: 2px 6px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .agent-chat-foot textarea {
+            width: 100%;
+            min-height: 44px;
+            max-height: 120px;
+            resize: vertical;
+            border-radius: 20px;
+            border: 1px solid #d1d7de;
+            padding: 11px 16px 11px 16px;
+            font-size: 15px;
+            line-height: 1.45;
+            font-family: var(--agent-chat-font);
+            color: #0f172a;
+            background: #fff;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+        .agent-chat-foot textarea::placeholder {
+            color: #94a3b8;
+        }
+        .agent-chat-foot textarea:focus {
+            outline: none;
+            border-color: var(--bmo-teal);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 2px rgba(0, 112, 120, 0.15);
+        }
+        .agent-chat-foot button.send {
+            min-width: 48px;
+            min-height: 48px;
+            padding: 0;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(160deg, #0176d3 0%, #1589ee 100%);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(1, 118, 211, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .agent-chat-foot button.send svg {
+            display: block;
+            margin-left: 3px;
+        }
+        @media (hover: hover) {
+            .agent-chat-foot button.send:hover:not(:disabled) {
+                filter: brightness(1.08);
+            }
+        }
+        .agent-chat-foot button.send:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -1529,8 +3061,8 @@
                                 <button type="button" class="header-dropdown__item" role="menuitem" id="quickLinksAdminHubBtn">Admin Hub</button>
                             </div>
                         </div>
-                        <div class="header-dropdown-anchor">
-                            <button type="button" class="header-notif-btn has-alert" id="notifBtn" aria-expanded="false" aria-haspopup="true" aria-controls="notifDropdown" aria-label="Notifications, 1 unread">
+                        <div class="header-dropdown-anchor header-dropdown-anchor--notifs">
+                            <button type="button" class="header-notif-btn has-alert" id="notifBtn" aria-expanded="false" aria-haspopup="true" aria-controls="notifDropdown" aria-label="Notifications, 2 unread">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                                     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -1538,12 +3070,39 @@
                                 <svg class="header-notif-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M6 9l6 6 6-6"/>
                                 </svg>
-                                <span class="notif-badge" id="notifBadge" aria-hidden="true">1</span>
+                                <span class="notif-badge" id="notifBadge" aria-hidden="true">2</span>
                             </button>
-                            <div id="notifDropdown" class="header-dropdown header-dropdown--wide" role="menu" hidden>
-                                <button type="button" class="header-dropdown__item header-dropdown__item--multiline" role="menuitem" id="notifItem1">
-                                    <span class="header-dropdown__item-title"><strong>Important message from your Advisor</strong></span>
-                                    <span class="header-dropdown__item-sub">Authorize Account Consolidation</span>
+                            <div id="notifDropdown" class="header-dropdown header-dropdown--wide header-dropdown--notifs" role="menu" hidden>
+                                <button type="button" class="notif-entry notif-entry--unread notif-entry--promo-cashback" role="menuitem" id="notifItemPromo">
+                                    <span class="notif-entry__promo-inline">
+                                        <span class="notif-entry__promo-icon" aria-hidden="true">
+                                            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <defs>
+                                                    <linearGradient id="promoTagFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stop-color="#ff8a4a"/>
+                                                        <stop offset="55%" stop-color="#e85d04"/>
+                                                        <stop offset="100%" stop-color="#c45c00"/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <!-- Retail-style price tag: hole + bold $ (reads as “offer”) -->
+                                                <path d="M9 13.5 L9 22.5 C9 24.7 10.8 26.5 13 26.5 H25.5 C27.7 26.5 29.5 24.7 29.5 22.5 V13.5 C29.5 11.3 27.7 9.5 25.5 9.5 H22 L19 6 L16 9.5 H13 C10.8 9.5 9 11.3 9 13.5 Z" fill="url(#promoTagFill)" stroke="#9a3412" stroke-width="1"/>
+                                                <circle cx="19.25" cy="14.75" r="2.6" fill="#fff8f0" stroke="#9a3412" stroke-width="0.85"/>
+                                                <text x="19.25" y="23.75" text-anchor="middle" fill="#fff" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="800">$</text>
+                                            </svg>
+                                        </span>
+                                        <span class="notif-entry__promo-copy">
+                                            <strong>Earn up to $100 cashback</strong>
+                                            <span class="notif-entry__promo-sep" aria-hidden="true">·</span>
+                                            <span class="notif-entry__promo-sub">Limited-time welcome offer</span>
+                                        </span>
+                                    </span>
+                                </button>
+                                <button type="button" class="notif-entry notif-entry--unread" role="menuitem" id="notifItemAdvisor">
+                                    <span class="notif-entry__icon" aria-hidden="true">SR</span>
+                                    <span class="notif-entry__body">
+                                        <span class="notif-entry__title">Advisor message</span>
+                                        <span class="notif-entry__meta">Link an external account—search and choose your bank</span>
+                                    </span>
                                 </button>
                             </div>
                         </div>
@@ -1569,12 +3128,25 @@
 
         <main class="app-main">
             <div class="grid">
+                <div id="smartOffersBanner" class="smart-offers-banner" hidden>
+                    <button type="button" class="smart-offers-banner__close" id="smartOffersBannerClose" aria-label="Dismiss offers banner"><span aria-hidden="true">&times;</span></button>
+                    <button type="button" class="smart-offers-banner__main" id="smartOffersBannerOpen">
+                        <span class="smart-offers-banner__icon" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="#007078" stroke-width="2" stroke-linecap="round"/>
+                                <rect x="5" y="11" width="14" height="10" rx="2" stroke="#0c2340" stroke-width="2"/>
+                                <path d="M12 15v2" stroke="#0c2340" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        <span id="smartOffersBannerLine" class="smart-offers-banner__text"></span>
+                    </button>
+                </div>
                 <section class="overview">
                     <div class="section-head">
                         <h2>Overview</h2>
                         <button type="button" class="info-btn" id="overviewInfoBtn" aria-label="About overview">i</button>
                     </div>
-                    <div class="info-tooltip" id="overviewInfoTip">Link external accounts to see balances and transactions alongside your BMO relationship, all in one place.</div>
+                    <div class="info-tooltip" id="overviewInfoTip">Link external accounts to see balances and transactions alongside your Synapse Bank relationship, all in one place.</div>
 
                     <div class="cards">
                         <div class="card card--cash-tappable" id="cashCard">
@@ -1589,7 +3161,7 @@
                                     </svg>
                                 </button>
                             </div>
-                            <div class="info-tooltip" id="cashInfoTip">360 Account information. Total amount across BMO and other connected bank accounts.</div>
+                            <div class="info-tooltip" id="cashInfoTip">360 Account information. Total amount across Synapse Bank and other connected bank accounts.</div>
                             <div class="card-value" id="totalBalance">—</div>
                         </div>
                         <div class="card" id="externalConnectionsCard">
@@ -1643,22 +3215,35 @@
 
     <div class="modal-overlay" id="connectionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal">
+            <div id="promoConnectDisclaimer" class="promo-connect-disclaimer" style="display: none;" role="note">
+                <strong>$100 cashback offer:</strong> You must complete a successful link with the required data sharing below to remain eligible. Turning off required permissions may disqualify you from this promotion. Standard offer terms apply.
+            </div>
+            <div id="advisorConnectDisclaimer" class="promo-connect-disclaimer advisor-connect-disclaimer" style="display: none;" role="note">
+                <strong>Advisor connection:</strong> Your advisor has suggested linking an external account for a fuller financial picture. Search for your institution below—no bank is pre-selected. This is <strong>not</strong> the $100 cashback promotion. You control which data is shared before any bank sign-in.
+            </div>
             <div id="bankSelection">
                 <h3 id="modalTitle">Connect your bank</h3>
-                <p>Choose your financial institution to securely link your accounts.</p>
+                <p id="bankSelectionLead">Choose your financial institution to securely link your accounts.</p>
+
+                <div class="bank-search-wrap" id="bankSearchWrap">
+                    <input type="search" id="connectBankSearch" placeholder="Search banks" autocomplete="off" aria-label="Search banks" />
+                </div>
 
                 <div class="bank-list" id="connectBankList"></div>
 
                 <div class="modal-buttons">
-                    <button type="button" class="modal-btn modal-btn-secondary" onclick="closeConnectionModal()">Cancel</button>
+                    <button type="button" class="modal-btn modal-btn-secondary" id="connectionModalCancelBtn">Cancel</button>
                 </div>
             </div>
 
             <div id="scopeSelection" style="display:none">
                 <h3 id="scopeModalTitle">Authorize data access</h3>
-                <p class="scope-lead">Select the data you want to share with <strong id="scopePrimaryName">your bank</strong> from <strong id="scopeBankName"></strong>. You can change this later.</p>
+                <p class="scope-lead" id="scopeLeadStandard">Select the data you want to share with <strong id="scopePrimaryName">your bank</strong> from <strong id="scopeBankName"></strong>. You can change this later.</p>
+                <div class="scope-lead scope-lead--promo" id="scopeLeadPromo" style="display: none;"></div>
+                <p class="scope-promo-hint" id="scopePromoRequiredHint" style="display: none;" role="note"></p>
                 <div class="scope-checklist" id="scopeChecklist"></div>
-                <div class="modal-buttons">
+                <div id="scopePromoTrust" class="scope-promo-trust" style="display: none;"></div>
+                <div class="modal-buttons modal-buttons--scope-connect">
                     <button type="button" class="modal-btn modal-btn-secondary" id="scopeBackBtn">Back</button>
                     <button type="button" class="modal-btn modal-btn-primary" id="scopeProceedBtn">Authorize &amp; connect</button>
                 </div>
@@ -1680,7 +3265,7 @@
             <div class="cash-drill-scroll">
                 <section class="cash-drill-bank" aria-labelledby="cashBmoHeading">
                     <div class="cash-drill-bank__head">
-                        <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> <span id="cashPrimaryBankName">BMO</span> <span class="cash-drill-badge">Primary</span></span>
+                        <span class="cash-drill-bank__title" id="cashBmoHeading"><span aria-hidden="true">🏦</span> <span id="cashPrimaryBankName">Synapse</span> <span class="cash-drill-badge">Primary</span></span>
                     </div>
                     <div class="cash-drill-box" id="cashDrillBmoBox"></div>
                 </section>
@@ -1732,7 +3317,7 @@
                 <div class="advisor-avatar" aria-hidden="true">SR</div>
                 <div class="advisor-banner-text">
                     <div class="advisor-banner-name">Sarah Robertson</div>
-                    <div class="advisor-banner-role" id="advisorAffiliationLine">Senior Financial Advisor &bull; <span id="advisorPrimaryAffiliation">BMO Wealth</span></div>
+                    <div class="advisor-banner-role" id="advisorAffiliationLine">Senior Financial Advisor &bull; <span id="advisorPrimaryAffiliation">Synapse Private Banking</span></div>
                 </div>
             </div>
 
@@ -1761,8 +3346,179 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="smartOffersModal" role="dialog" aria-modal="true" aria-labelledby="smartOffersModalTitle" aria-hidden="true">
+        <div class="modal modal--smart-offers">
+            <button type="button" class="modal-close-btn" id="smartOffersModalClose" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <h3 id="smartOffersModalTitle">Offers tailored to your profile</h3>
+            <p class="smart-offers-modal__lead">Based on your newly linked account data, here are three Synapse opportunities picked for you.</p>
+            <div class="smart-offer-card">
+                <div class="smart-offer-card__visual smart-offer-card__visual--platinum" aria-hidden="true">Synapse Platinum</div>
+                <div class="smart-offer-card__hook">We noticed you might be paying high interest on your external credit cards.</div>
+                <div class="smart-offer-card__value">Unlock the Synapse Platinum Card. Enjoy an exclusive 0% Intro APR for 15 months, followed by a guaranteed low 12.99% rate.</div>
+                <div class="smart-offer-card__terms">No annual fee for the first year.</div>
+                <button type="button" class="smart-offer-card__cta" id="smartOfferCta1">Accept Pre-Approved Offer</button>
+            </div>
+            <div class="smart-offer-card">
+                <div class="smart-offer-card__visual smart-offer-card__visual--savings" aria-hidden="true"><span class="pct">5%</span><span>APY promo</span></div>
+                <div class="smart-offer-card__hook">Make the cash we spotted in your connected accounts work harder for you.</div>
+                <div class="smart-offer-card__value">Secure 5% Guaranteed Interest. Earn a premium 5% APY on a new Savings Account for 6 months.</div>
+                <div class="smart-offer-card__terms">Simply move $10,000 or more from your linked account within the next 3 months to qualify.</div>
+                <button type="button" class="smart-offer-card__cta" id="smartOfferCta2">Open Account &amp; Transfer</button>
+            </div>
+            <div class="smart-offer-card">
+                <div class="smart-offer-card__visual smart-offer-card__visual--loan" aria-hidden="true">Consolidation</div>
+                <div class="smart-offer-card__hook">We see you are managing a few different balances across your connected accounts.</div>
+                <div class="smart-offer-card__value">Pre-Approved $15,000 Consolidation Loan. Roll your external balances into one simple, lower-interest payment and save an estimated $120/month.</div>
+                <div class="smart-offer-card__terms">Fixed 7.5% APR for 36 months based on your verified Open Banking profile.</div>
+                <button type="button" class="smart-offer-card__cta" id="smartOfferCta3">View My Terms</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="promoModal" role="dialog" aria-modal="true" aria-labelledby="promoTitle" aria-hidden="true">
+        <div class="modal modal--promo">
+            <button type="button" class="modal-close-btn" id="promoCloseBtn" aria-label="Close"><span aria-hidden="true">&#215;</span></button>
+            <div class="promo-modal-ribbon" aria-hidden="true"><span>$100</span></div>
+            <h3 id="promoTitle">Cashback welcome offer</h3>
+            <p class="promo-modal-lead">Open a qualifying product and you could earn <strong>up to $100 cashback</strong> when you meet the offer requirements. Link an external account to get started.</p>
+            <div class="modal-buttons">
+                <button type="button" class="modal-btn modal-btn-secondary" id="promoDismissBtn">Not now</button>
+                <button type="button" class="modal-btn modal-btn-primary" id="promoOfferBtn">Choose your bank</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
-    <script defer="defer" src="/web/bmo-ui.js?v=20260401i"></script>
+    <button type="button" class="agent-chat-fab" id="agentChatFab" aria-label="Open agent chat" title="Agent assistant">
+        <span class="agent-chat-fab__logo">
+            <svg class="agent-chat-fab__svg" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <!-- Agent mark: chat bubble + AI spark + typing dots (high contrast on navy FAB) -->
+                <path fill="rgba(255,255,255,0.16)" stroke="#ffffff" stroke-width="2.1" stroke-linejoin="round"
+                    d="M14 12h17a8 8 0 0 1 8 8v9a8 8 0 0 1-8 8h-8.2L16 40v-7h-2a8 8 0 0 1-8-8v-5a8 8 0 0 1 8-8z"/>
+                <path fill="#7dd3fc" d="M34.5 8.5l1.4 2.8 2.8 1.4-2.8 1.4-1.4 2.8-1.4-2.8-2.8-1.4 2.8-1.4z"/>
+                <circle class="agent-chat-fab__glyph-dot" cx="19.5" cy="24.5" r="2.35" fill="#ffffff"/>
+                <circle class="agent-chat-fab__glyph-dot" cx="24.5" cy="24.5" r="2.35" fill="#ffffff"/>
+                <circle class="agent-chat-fab__glyph-dot" cx="29.5" cy="24.5" r="2.35" fill="#ffffff"/>
+            </svg>
+        </span>
+    </button>
+
+    <section class="agent-chat-panel" id="agentChatPanel" hidden aria-label="Agent chat">
+        <div class="agent-chat-head">
+            <div class="agent-chat-head__identity">
+                <div class="agent-chat-head__logo" id="agentChatHeadLogoWrap" aria-hidden="true">
+                    <img class="agent-chat-head__logo-img" id="agentChatHeadLogoImg" alt="" width="40" height="40" hidden="" decoding="async" />
+                    <span class="agent-chat-head__monogram" id="agentChatHeadMonogram">AI</span>
+                </div>
+                <div class="agent-chat-head__text">
+                    <div class="agent-chat-head__select-wrap">
+                        <select id="agentChatAgentSelect" class="agent-chat-head__select" aria-label="Active agent" title="Choose agent"></select>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="agent-chat-icon-btn" id="agentChatMinimizeBtn" aria-label="Minimize" title="Minimize">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M5 12h14"/>
+                </svg>
+            </button>
+            <button type="button" class="agent-chat-icon-btn" id="agentChatSettingsBtn" aria-label="Agent and broker settings" title="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+            </button>
+            <button type="button" class="agent-chat-icon-btn" id="agentChatCloseBtn" aria-label="Close chat">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="agent-chat-body" id="agentChatBody">
+        <div class="agent-chat-main" id="agentChatMain">
+            <div class="agent-chat-scroll">
+            <div class="agent-chat-msgs" id="agentChatMsgs" role="log" aria-live="polite"></div>
+            <p class="agent-chat-powered">
+                <span class="agent-chat-powered__label">powered by</span>
+                <img
+                    class="agent-chat-powered__logo"
+                    id="agentChatSalesforceLogo"
+                    src="web/images/sf_logo.png?v=20250422"
+                    alt="Salesforce"
+                    loading="lazy"
+                    decoding="async"
+                />
+            </p>
+            </div>
+            <div class="agent-chat-foot">
+                <input type="file" id="agentChatFileInput" multiple hidden />
+                <button type="button" class="agent-chat-foot__attach" id="agentChatAttachBtn" title="Attach files" aria-label="Attach files">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M21.44 11.05l-9.19 9.19a4.5 4.5 0 0 1-6.36-6.36l9.2-9.19a3 3 0 0 1 4.25 4.25L7.2 20.1"/>
+                    </svg>
+                </button>
+                <div class="agent-chat-foot__input-col">
+                    <div class="agent-chat-file-chips" id="agentChatFileChips" hidden></div>
+                    <textarea id="agentChatInput" rows="2" placeholder="Message…" aria-label="Message"></textarea>
+                </div>
+                <button type="button" class="send" id="agentChatSendBtn" title="Send" aria-label="Send message">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="agent-chat-settings" id="agentChatSettings" aria-label="Broker settings">
+            <button type="button" class="secondary" id="agentChatSettingsBackBtn">Back to chat</button>
+            <h4>Add A2A broker</h4>
+            <div class="agent-chat-field">
+                <div class="agent-chat-field__label">
+                    <label for="agentChatBrokerUrl" class="agent-chat-field__label-text">Broker base URL <abbr class="agent-chat-req" title="Required" aria-label="required">*</abbr></label>
+                    <button type="button" class="agent-chat-info-btn" id="agentChatBrokerUrlHelpBtn" aria-expanded="false" aria-controls="agentChatBrokerUrlHelpBlock" title="What to enter" aria-label="Help for broker base URL">?</button>
+                </div>
+                <input type="url" id="agentChatBrokerUrl" placeholder="https://your-broker.example.com/path/" autocomplete="off" />
+                <p class="agent-chat-hint agent-chat-hint--collapsible" id="agentChatBrokerUrlHelpBlock" hidden>Enter the <strong>broker base</strong> (e.g. <code>…/employee-onboarding-agent-broker/</code>) or paste the full <code>/.well-known/agent-card.json</code> URL — both work. The hostname must match the server TLS certificate (use the same host as in the card’s <code>url</code> field). Trailing slashes are normalized.</p>
+            </div>
+            <div class="agent-chat-field">
+                <label for="agentChatBrokerAlias" class="agent-chat-field__label-text">Agent Alias <abbr class="agent-chat-req" title="Required" aria-label="required">*</abbr></label>
+                <input type="text" id="agentChatBrokerAlias" maxlength="80" placeholder="e.g. Order agent" autocomplete="off" aria-label="Agent alias" />
+            </div>
+            <div class="agent-chat-row-btns">
+                <button type="button" class="secondary" id="agentChatPreviewBtn">Preview card</button>
+                <button type="button" class="secondary" id="agentChatAddBrokerBtn" style="background:var(--bmo-teal);color:#fff;border-color:transparent;">Add broker</button>
+            </div>
+            <div class="agent-chat-card-preview" id="agentChatCardPreview" hidden></div>
+            <h4>Registered brokers</h4>
+            <div class="agent-chat-broker-list agent-chat-broker-cards" id="agentChatBrokerList"></div>
+            <h4>History (this browser tab)</h4>
+            <div class="agent-chat-row-btns">
+                <button type="button" class="secondary danger" id="agentChatClearCurrentBtn">Clear current agent</button>
+                <button type="button" class="secondary danger" id="agentChatClearAllBtn">Clear all agents</button>
+            </div>
+        </div>
+        </div>
+        <div class="agent-broker-modal" id="agentBrokerPreviewModal" hidden aria-modal="true" role="dialog" aria-labelledby="agentBrokerPreviewModalTitle">
+            <div class="agent-broker-modal__backdrop" id="agentBrokerPreviewModalBackdrop"></div>
+            <div class="agent-broker-modal__sheet">
+                <div class="agent-broker-modal__head">
+                    <span id="agentBrokerPreviewModalTitle">Agent card preview</span>
+                    <button type="button" id="agentBrokerPreviewModalClose" aria-label="Close">×</button>
+                </div>
+                <div class="agent-broker-modal__body" id="agentBrokerPreviewModalBody"></div>
+            </div>
+        </div>
+        <div class="agent-broker-modal" id="agentBrokerDetailModal" hidden aria-modal="true" role="dialog" aria-labelledby="agentBrokerDetailModalTitle">
+            <div class="agent-broker-modal__backdrop" id="agentBrokerDetailModalBackdrop"></div>
+            <div class="agent-broker-modal__sheet">
+                <div class="agent-broker-modal__head">
+                    <span id="agentBrokerDetailModalTitle">Agent details</span>
+                    <button type="button" id="agentBrokerDetailModalClose" aria-label="Close">×</button>
+                </div>
+                <div class="agent-broker-modal__body" id="agentBrokerDetailModalBody"></div>
+            </div>
+        </div>
+    </section>
+
+    <script defer="defer" src="/web/bmo-ui.js?v=20260423multi1"></script>
 </body>
 </html>
