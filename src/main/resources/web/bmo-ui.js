@@ -3247,6 +3247,24 @@
             wrap.scrollTop = wrap.scrollHeight;
         }
 
+        function syncAgentChatMinimizeButton() {
+            var minimized = panel.classList.contains('agent-chat-panel--minimized');
+            var btn = document.getElementById('agentChatMinimizeBtn');
+            if (!btn) return;
+            var minSvg = btn.querySelector('.agent-chat-icon-minimize');
+            var maxSvg = btn.querySelector('.agent-chat-icon-maximize');
+            btn.setAttribute('aria-label', minimized ? 'Maximize' : 'Minimize');
+            btn.setAttribute('title', minimized ? 'Maximize' : 'Minimize');
+            if (minSvg) {
+                if (minimized) minSvg.setAttribute('hidden', '');
+                else minSvg.removeAttribute('hidden');
+            }
+            if (maxSvg) {
+                if (minimized) maxSvg.removeAttribute('hidden');
+                else maxSvg.setAttribute('hidden', '');
+            }
+        }
+
         function openPanel() {
             panel.classList.remove('agent-chat-panel--minimized');
             panel.removeAttribute('hidden');
@@ -3254,6 +3272,7 @@
                 panel.classList.add('is-open');
             });
             fab.setAttribute('hidden', '');
+            syncAgentChatMinimizeButton();
             updateChatHeader();
             renderMessages();
         }
@@ -3268,6 +3287,29 @@
             fab.removeAttribute('hidden');
         }
 
+        function setAddBrokerFormOpen(open) {
+            var el = document.getElementById('addBrokerForm');
+            var headBtn = document.getElementById('toggleAddFormBtn');
+            if (!el) return;
+            if (open) {
+                el.classList.remove('is-hidden');
+                if (headBtn) {
+                    headBtn.setAttribute('aria-expanded', 'true');
+                    headBtn.classList.add('is-active');
+                }
+                requestAnimationFrame(function () {
+                    var u = document.getElementById('agentChatBrokerUrl');
+                    if (u) u.focus();
+                });
+            } else {
+                el.classList.add('is-hidden');
+                if (headBtn) {
+                    headBtn.setAttribute('aria-expanded', 'false');
+                    headBtn.classList.remove('is-active');
+                }
+            }
+        }
+
         function showSettings(show) {
             var main = document.getElementById('agentChatMain');
             var st = document.getElementById('agentChatSettings');
@@ -3275,54 +3317,62 @@
             if (show) {
                 main.classList.add('is-hidden');
                 st.classList.add('is-visible');
+                setAddBrokerFormOpen(false);
             } else {
                 st.classList.remove('is-visible');
                 main.classList.remove('is-hidden');
+                setAddBrokerFormOpen(false);
             }
         }
 
         function refreshBrokerListUi() {
-            var listEl = document.getElementById('agentChatBrokerList');
-            if (!listEl) return;
+            var grid = document.getElementById('agentChatBrokerList');
+            if (!grid) return;
+            grid.innerHTML = '';
             if (!brokers.length) {
-                listEl.textContent = 'No brokers yet. Add a URL and agent alias above.';
-                return;
+                var empty = document.createElement('div');
+                empty.className = 'broker-grid__empty';
+                empty.textContent = 'No brokers yet. Use Add broker above to connect one.';
+                grid.appendChild(empty);
             }
-            listEl.innerHTML = '';
             brokers.forEach(function (b) {
                 var card = document.createElement('button');
                 card.type = 'button';
-                card.className = 'agent-chat-broker-card';
+                card.className = 'broker-tile' + (b.id === defaultBrokerId ? ' is-default' : '');
                 var display = brokerDisplayName(b);
                 var fullName = (b.card && b.card.name) ? String(b.card.name) : String(b.name || b.id || '');
                 var fullVersion = (b.card && b.card.version) ? String(b.card.version) : String(b.version || '');
                 if (!String(fullName).trim()) {
                     fullName = '—';
                 }
+                var verStr = fullVersion && String(fullVersion).trim() ? String(fullVersion).trim() : '';
+                if (verStr && !/^v\d/i.test(verStr)) {
+                    verStr = 'v' + verStr;
+                }
                 card.setAttribute('aria-label', 'Open details for ' + display);
                 if (b.id === defaultBrokerId) {
-                    var badge = document.createElement('div');
-                    badge.className = 'agent-chat-broker-default-badge';
+                    var badge = document.createElement('span');
+                    badge.className = 'badge';
                     badge.textContent = 'Default';
                     card.appendChild(badge);
                 }
                 var l1 = document.createElement('div');
-                l1.className = 'agent-chat-broker-card__line agent-chat-broker-card__alias';
+                l1.className = 'tile-alias';
                 l1.textContent = display;
                 l1.title = display;
                 var l2 = document.createElement('div');
-                l2.className = 'agent-chat-broker-card__line agent-chat-broker-card__cname';
+                l2.className = 'tile-meta';
                 l2.textContent = fullName;
                 l2.title = fullName;
                 var l3 = document.createElement('div');
-                l3.className = 'agent-chat-broker-card__ver';
-                l3.textContent = 'Version ' + (fullVersion && String(fullVersion).trim() ? fullVersion : '—');
+                l3.className = 'tile-desc';
+                l3.textContent = verStr || '—';
                 var actions = document.createElement('div');
-                actions.className = 'agent-chat-broker-card__actions';
+                actions.className = 'broker-tile__actions';
                 var defB = document.createElement('button');
                 defB.type = 'button';
-                defB.className = 'agent-chat-broker-set-default';
-                defB.textContent = b.id === defaultBrokerId ? 'Clear default' : 'Set as default';
+                defB.className = 'broker-tile__link';
+                defB.textContent = b.id === defaultBrokerId ? 'Clear default' : 'Set default';
                 defB.addEventListener('click', function (e) {
                     e.stopPropagation();
                     if (b.id === defaultBrokerId) {
@@ -3333,6 +3383,7 @@
                 });
                 var rm = document.createElement('button');
                 rm.type = 'button';
+                rm.className = 'broker-tile__remove';
                 rm.textContent = 'Remove';
                 rm.addEventListener('click', function (e) {
                     e.stopPropagation();
@@ -3347,7 +3398,7 @@
                 card.addEventListener('click', function () {
                     showBrokerDetailModal(b);
                 });
-                listEl.appendChild(card);
+                grid.appendChild(card);
             });
         }
 
@@ -3563,6 +3614,21 @@
         var backBtn = document.getElementById('agentChatSettingsBackBtn');
         if (backBtn) backBtn.addEventListener('click', function () { showSettings(false); });
 
+        var toggleAddFormBtn = document.getElementById('toggleAddFormBtn');
+        if (toggleAddFormBtn) {
+            toggleAddFormBtn.addEventListener('click', function () {
+                var form = document.getElementById('addBrokerForm');
+                var open = form && !form.classList.contains('is-hidden');
+                setAddBrokerFormOpen(!open);
+            });
+        }
+        var cancelAddBtn = document.getElementById('cancelAddBtn');
+        if (cancelAddBtn) {
+            cancelAddBtn.addEventListener('click', function () {
+                setAddBrokerFormOpen(false);
+            });
+        }
+
         var sel = document.getElementById('agentChatAgentSelect');
         if (sel) {
             sel.addEventListener('change', function () {
@@ -3577,8 +3643,10 @@
             minBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 panel.classList.toggle('agent-chat-panel--minimized');
+                syncAgentChatMinimizeButton();
             });
         }
+        syncAgentChatMinimizeButton();
 
         var fInput = document.getElementById('agentChatFileInput');
         var attachBtn = document.getElementById('agentChatAttachBtn');
@@ -3693,6 +3761,7 @@
                         closeAllAgentBrokerModals();
                         if (urlEl) urlEl.value = '';
                         if (aliasEl) aliasEl.value = '';
+                        setAddBrokerFormOpen(false);
                         var pv = document.getElementById('agentChatCardPreview');
                         if (pv) {
                             pv.setAttribute('hidden', '');
@@ -3851,7 +3920,7 @@
                 var key = histKeyForSelect();
                 histories[key] = [];
                 renderMessages();
-                showNotification('History cleared for this agent', 'success');
+                showNotification('Active agent history cleared', 'success');
             });
         }
         var clearAll = document.getElementById('agentChatClearAllBtn');
